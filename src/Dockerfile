@@ -7,7 +7,7 @@ FROM ubuntu:xenial
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl
+    apt-get install -y curl unzip
 
 ADD hub_load /home/hub_load
 RUN chmod +x /home/hub_load/download-packages.sh
