@@ -3,6 +3,14 @@
 #  Generates and submits test loads for HUB
 #
 
+function readvar() {
+   echo -n Enter value for $1 [${!1}]
+   read temp
+   if [ ! -z $temp ] ; then 
+     eval $1=$temp
+   fi
+}
+
 # Set woring directory
 #
 WORKDIR=$(dirname $0)
@@ -20,10 +28,25 @@ SCANNER_AUTH="BD_HUB_PASSWORD=blackduck $scanner -v --project $project_name --na
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
+INT_PARAMS="BD_HUB BD_HUB_USER BD_HUB_PASS MAX_SCANS MAX_CODELOCATIONS MAX_COMPONENTS MAX_VERSIONS"
+
+if [ "$INTERACTIVE" = "yes" ]
+then
+   for i in $INT_PARAMS
+   do
+     readvar $i
+   done
+fi
+
+for i in $INT_PARAMS
+do
+   echo $i ${!i}
+done
+
 if [ "$BD_HUB" = "" ]
 then
-   echo -n "Enter HUB hostname [$BD_HUB] " 
-   read BD_HUB
+   echo No HUB specified, Exiting. 
+   exit 1
 fi
 
 #
