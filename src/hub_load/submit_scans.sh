@@ -16,13 +16,33 @@ function readvar() {
 WORKDIR=$(dirname $0)
 cd $WORKDIR
 
+
 #
-BD_HUB_USER=sysadmin
-BD_HUB_PASS=blackduck
-MAX_SCANS=10
-MAX_CODELOCATIONS=1
-MAX_COMPONENTS=100
-MAX_VERSIONS=20
+# Process defaults
+#
+declare -A DEFAULTS
+
+DEFAULTS[BD_HUB_USER]=sysadmin
+DEFAULTS[BD_HUB_PASS]=blackduck
+DEFAULTS[MAX_SCANS]=10
+DEFAULTS[MAX_CODELOCATIONS]=1
+DEFAULTS[MAX_COMPONENTS]=100
+DEFAULTS[MAX_VERSIONS]=20
+
+echo 
+echo "Processing defaults"
+echo
+for index in ${!DEFAULTS[@]} 
+do 
+  if [[ -z ${!index} ]] 
+  then 
+    # echo $index is not set applying default
+    eval $index=${DEFAULTS[$index]}
+  fi
+done
+echo
+
+#
 SCANNER_OPTS=-Dspring.profiles.active=bds-disable-scan-graph
 SCANNER_AUTH="BD_HUB_PASSWORD=blackduck $scanner -v --project $project_name --name $cl_name --release $v --host $HUB --port 443 --insecure --username sysadmin $project_name/$cl_name"
 PROJECT="Project-$HOSTNAME"
@@ -38,10 +58,23 @@ then
    done
 fi
 
+echo 
+echo Submitting with the following parameters:
+echo  
 for i in $INT_PARAMS
 do
-   echo $i ${!i}
+   echo $'\t' $i ${!i}
 done
+
+echo 
+if [ "$INTERACTIVE" = "yes" ]
+then
+   continue=Y
+   readvar continue
+   if [[ ! "$continue" = "Y" ]] ; then exit 1 ; fi
+fi
+
+echo Starting ...
 
 if [ "$BD_HUB" = "" ]
 then
