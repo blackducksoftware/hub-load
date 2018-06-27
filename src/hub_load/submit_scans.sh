@@ -4,7 +4,7 @@
 #
 
 function readvar() {
-   echo -n Enter value for $1 [${!1}]
+   echo -n "Enter value for $1 [${!1}] "
    read temp
    if [ ! -z $temp ] ; then 
      eval $1=$temp
