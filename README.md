@@ -24,7 +24,7 @@ MAX_VERSIONS          20
 
 Submitting scans with default parameters to . testhub.blackducksoftware.com 
 ```
-docker run --rm -e BD_HUB:testhub.blackducksoftware.com hub-load /home/hub_load/submit_scans.sh
+docker run --rm -e BD_HUB=testhub.blackducksoftware.com hub-load /home/hub_load/submit_scans.sh
 ```
 
 ### Interactive invocaion
