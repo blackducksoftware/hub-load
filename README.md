@@ -12,7 +12,8 @@ TBD
 
 ## Building from source
 
-```git clone https://github.com/blackducksoftware/hub-load.git
+```
+git clone https://github.com/blackducksoftware/hub-load.git
 cd hub-load/src
 docker build -t <container tag> . 
 ```
