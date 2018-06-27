@@ -12,4 +12,9 @@ TBD
 
 ## Building from source
 
-TBD
+```git clone https://github.com/blackducksoftware/hub-load.git
+cd hub-load/src
+docker build -t <container tag> . 
+```
+
+Note: Build  process will download archives listed in hub-load/src/packagelist. This will result in a container ~5GB in size. 
