@@ -23,7 +23,7 @@ MAX_COMPONENTS        100
 MAX_VERSIONS          20
 ```
 
-### Nin-interactive invocation
+### Non-interactive invocation
 
 Submitting scans with default parameters to . testhub.blackducksoftware.com 
 ```
