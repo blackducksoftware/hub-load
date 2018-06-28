@@ -153,7 +153,7 @@ do
       ln -f ${project_jars[@]} $project_name/$cl_name
 
       echo "scanning"
-      SCAN_CLI_OPTS=-Dspring.profiles.active=bds-disable-scan-graph BD_HUB_PASSWORD=blackduck $SCANNER -v --project $project_name --name $cl_name --release $v --host $BD_HUB --port 443 --insecure --username sysadmin $project_name/$cl_name
+      SCAN_CLI_OPTS=-Dspring.profiles.active=bds-disable-scan-graph BD_HUB_PASSWORD=$BH_HUB_PASS $SCANNER -v --project $project_name --name $cl_name --release $v --host $BD_HUB --port 443 --insecure --username $BD_HUB_USER $project_name/$cl_name
  echo "incr"
       ((scans++))
       echo "Total scans submitted: $scans"
