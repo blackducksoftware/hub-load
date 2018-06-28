@@ -27,26 +27,67 @@ Submitting scans with default parameters to . testhub.blackducksoftware.com
 docker run --rm -e BD_HUB=testhub.blackducksoftware.com hub-load /home/hub_load/submit_scans.sh
 ```
 
+Submitting scans overriding default parameters 
+
+```
+$ docker run --rm -e BD_HUB=testhub.blackducksoftware.com \
+                    -e MAX_SCANS=1 \
+                    -e BD_HUB_USER=hubuser \
+                    -e BD_HUB_PASS=password 
+                    hub-load /home/hub_load/submit_scans.sh
+
+Processing defaults
+
+Submitting with the following parameters:
+
+	 BD_HUB ip-172-31-8-206.ec2.internal
+	 BD_HUB_USER kumykov
+	 BD_HUB_PASS Ch@ngeIt
+	 MAX_SCANS 1
+	 MAX_CODELOCATIONS 1
+	 MAX_COMPONENTS 100
+	 MAX_VERSIONS 20
+
+Starting ...
+...
+...
+Total scans submitted: 1
+$
+```
+
 ### Interactive invocaion
 
 ```
-$ docker run -it hub-load
-root@60f526a5f9fc:/# INTERACTIVE=yes /home/hub_load/submit_scans.sh
-Enter value for BD_HUB []ip-172-31-8-206.ec2.internal
-Enter value for BD_HUB_USER [sysadmin]
-Enter value for BD_HUB_PASS [blackduck]
-Enter value for MAX_SCANS [10]
-Enter value for MAX_CODELOCATIONS [1]
-Enter value for MAX_COMPONENTS [100]
-Enter value for MAX_VERSIONS [20]
-BD_HUB ip-172-31-8-206.ec2.internal
-BD_HUB_USER sysadmin
-BD_HUB_PASS blackduck
-MAX_SCANS 10
-MAX_CODELOCATIONS 1
-MAX_COMPONENTS 100
-MAX_VERSIONS 20
-. . .
+$ docker run -it --rm -e BD_HUB=testhub.blackducksoftware.com \
+                      -e MAX_SCANS=1 \
+                      -e BD_HUB_USER=hubuser \
+                      -e BD_HUB_PASS=password \
+                      hub-load
+root@714cf6d9a957:/# INTERACTIVE=yes /home/hub_load/submit_scans.sh 
+
+Processing defaults
+
+Enter value for BD_HUB [testhub.blackducksoftware.com] 
+Enter value for BD_HUB_USER [hubuser] sysadmin
+Enter value for BD_HUB_PASS [Ch@ngeIt] blackduck
+Enter value for MAX_SCANS [1] 
+Enter value for MAX_CODELOCATIONS [1] 
+Enter value for MAX_COMPONENTS [100] 
+Enter value for MAX_VERSIONS [20] 
+
+Submitting with the following parameters:
+
+	 BD_HUB testhub.blackducksoftware.com
+	 BD_HUB_USER sysadmin
+	 BD_HUB_PASS blackduck
+	 MAX_SCANS 1
+	 MAX_CODELOCATIONS 1
+	 MAX_COMPONENTS 100
+	 MAX_VERSIONS 20
+
+Enter value for continue [Y] 
+Starting ...
+...
 ```
 
 
