@@ -41,8 +41,8 @@ Processing defaults
 Submitting with the following parameters:
 
 	 BD_HUB ip-172-31-8-206.ec2.internal
-	 BD_HUB_USER kumykov
-	 BD_HUB_PASS Ch@ngeIt
+	 BD_HUB_USER username
+	 BD_HUB_PASS password
 	 MAX_SCANS 1
 	 MAX_CODELOCATIONS 1
 	 MAX_COMPONENTS 100
