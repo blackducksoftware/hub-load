@@ -5,7 +5,7 @@ Generates large anounts of HUB projects with versions and components.
 
 ### Pull command
 
-Container is available from cgr.io
+Container is available from gcr.io
 ```
 docker pull gcr.io/gke-verification/github-blackducksoftware-hub-load:master
 ```
