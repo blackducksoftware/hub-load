@@ -3,6 +3,13 @@
 Containerized version of hub_load package provied by OPS team (joel)
 Generates large anounts of HUB projects with versions and components.
 
+### Pull command
+
+Container is available from cgr.io
+```
+docker pull gcr.io/gke-verification/github-blackducksoftware-hub-load:master
+```
+
 ## Usage
 
 Container will look for the following environment variables. Default values could be overriden as necessary
@@ -24,7 +31,9 @@ MAX_VERSIONS          20
 
 Submitting scans with default parameters to . testhub.blackducksoftware.com 
 ```
-docker run --rm -e BD_HUB=testhub.blackducksoftware.com hub-load /home/hub_load/submit_scans.sh
+$ docker run --rm -e BD_HUB=testhub.blackducksoftware.com \
+                    gcr.io/gke-verification/github-blackducksoftware-hub-load:master \
+		    /home/hub_load/submit_scans.sh
 ```
 
 Submitting scans overriding default parameters 
@@ -34,7 +43,8 @@ $ docker run --rm -e BD_HUB=testhub.blackducksoftware.com \
                     -e MAX_SCANS=1 \
                     -e BD_HUB_USER=hubuser \
                     -e BD_HUB_PASS=password 
-                    hub-load /home/hub_load/submit_scans.sh
+                    gcr.io/gke-verification/github-blackducksoftware-hub-load:master \
+		    /home/hub_load/submit_scans.sh
 
 Processing defaults
 
@@ -62,7 +72,7 @@ $ docker run -it --rm -e BD_HUB=testhub.blackducksoftware.com \
                       -e MAX_SCANS=1 \
                       -e BD_HUB_USER=hubuser \
                       -e BD_HUB_PASS=password \
-                      hub-load
+                      gcr.io/gke-verification/github-blackducksoftware-hub-load:master
 root@714cf6d9a957:/# INTERACTIVE=yes /home/hub_load/submit_scans.sh 
 
 Processing defaults
