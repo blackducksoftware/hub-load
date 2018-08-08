@@ -22,6 +22,7 @@ cd $WORKDIR
 #
 declare -A DEFAULTS
 
+DEFAULTS[BD_HUB_PORT]=443
 DEFAULTS[BD_HUB_USER]=sysadmin
 DEFAULTS[BD_HUB_PASS]=blackduck
 DEFAULTS[MAX_SCANS]=10
@@ -44,11 +45,11 @@ echo
 
 #
 SCANNER_OPTS=-Dspring.profiles.active=bds-disable-scan-graph
-SCANNER_AUTH="BD_HUB_PASSWORD=blackduck $scanner -v --project $project_name --name $cl_name --release $v --host $HUB --port 443 --insecure --username sysadmin $project_name/$cl_name"
+SCANNER_AUTH="BD_HUB_PASSWORD=blackduck $scanner -v --project $project_name --name $cl_name --release $v --host $HUB --port $PORT --insecure --username sysadmin $project_name/$cl_name"
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB BD_HUB_USER BD_HUB_PASS MAX_SCANS MAX_CODELOCATIONS MAX_COMPONENTS MAX_VERSIONS"
+INT_PARAMS="BD_HUB BD_HUB_PORT BD_HUB_USER BD_HUB_PASS MAX_SCANS MAX_CODELOCATIONS MAX_COMPONENTS MAX_VERSIONS"
 
 if [ "$INTERACTIVE" = "yes" ]
 then
@@ -153,7 +154,7 @@ do
       ln -f ${project_jars[@]} $project_name/$cl_name
 
       echo "scanning"
-      SCAN_CLI_OPTS=-Dspring.profiles.active=bds-disable-scan-graph BD_HUB_PASSWORD=$BD_HUB_PASS $SCANNER -v --project $project_name --name $cl_name --release $v --host $BD_HUB --port 443 --insecure --username $BD_HUB_USER $project_name/$cl_name
+      SCAN_CLI_OPTS=-Dspring.profiles.active=bds-disable-scan-graph BD_HUB_PASSWORD=$BD_HUB_PASS $SCANNER -v --project $project_name --name $cl_name --release $v --host $BD_HUB --port $BD_HUB_PORT --insecure --username $BD_HUB_USER $project_name/$cl_name
  echo "incr"
       ((scans++))
       echo "Total scans submitted: $scans"
