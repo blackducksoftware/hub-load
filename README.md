@@ -19,6 +19,7 @@ Container will look for the following environment variables. Default values coul
 Variable              Default Value
 --------------------- -------------
 BD_HUB                  
+BD_HUB_PORT           443
 BD_HUB_USER           sysadmin
 BD_HUB_PASS           blackduck
 MAX_SCANS             10
