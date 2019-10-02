@@ -11,45 +11,45 @@ function readvar() {
    fi
 }
 
+function get_elapsed_time() {
+  duration_line=$(cat $1 | awk '/Detect duration/ {print}')
+  # echo "Duration line: $duration_line" 1>&2
+  hours=$(echo $duration_line | awk '{print $8}' | sed -e "s/h//")
+  # echo "Hours: $hours"  1>&2
+  minutes=$(echo $duration_line | awk '{print $9}' | sed -e "s/m//")
+  # echo "Minutes: $minutes"  1>&2
+  seconds=$(echo $duration_line | awk '{print $10}' | sed -e "s/s//")
+  # echo "Seconds: $seconds"  1>&2
+
+  total_elapsed_seconds=$(( $hours * 3600 + $minutes * 60 + $seconds))
+  # echo "total elapsed time (seconds): $total_elapsed_seconds" 1>&2
+
+  # the total elapsed time is written to stdout so you can use this as input to something else
+  # that reads from stdout
+  #
+  echo $total_elapsed_seconds  
+}
+
 # Set woring directory
 #
 WORKDIR=$(dirname $0)
 cd $WORKDIR
 
-
 #
-# Process defaults
+# Defaults
 #
-declare -A DEFAULTS
+MAX_SCANS=${MAX_SCANS:-10}
+MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
+MAX_COMPONENTS=${MAX_COMPONENTS:-150}
+MAX_VERSIONS=${MAX_VERSIONS:-5}
+SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
+REPEAT_SCAN=${REPEAT_SCAN:-no}
 
-DEFAULTS[BD_HUB_PORT]=443
-DEFAULTS[BD_HUB_USER]=sysadmin
-DEFAULTS[BD_HUB_PASS]=blackduck
-DEFAULTS[MAX_SCANS]=10
-DEFAULTS[MAX_CODELOCATIONS]=1
-DEFAULTS[MAX_COMPONENTS]=150
-DEFAULTS[MAX_VERSIONS]=20
 
-echo 
-echo "Processing defaults"
-echo
-for index in ${!DEFAULTS[@]} 
-do 
-  if [[ -z ${!index} ]] 
-  then 
-    # echo $index is not set applying default
-    eval $index=${DEFAULTS[$index]}
-  fi
-done
-echo
-
-#
-SCANNER_OPTS=-Dspring.profiles.active=bds-disable-scan-graph
-SCANNER_AUTH="BD_HUB_PASSWORD=blackduck $scanner -v --project $project_name --name $cl_name --release $v --host $HUB --port $PORT --insecure --username sysadmin $project_name/$cl_name"
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB BD_HUB_PORT BD_HUB_USER BD_HUB_PASS MAX_SCANS MAX_CODELOCATIONS MAX_COMPONENTS MAX_VERSIONS"
+INT_PARAMS="BD_HUB_URL API_TOKEN MAX_SCANS MAX_CODELOCATIONS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS"
 
 if [ "$INTERACTIVE" = "yes" ]
 then
@@ -60,7 +60,7 @@ then
 fi
 
 echo 
-echo Submitting with the following parameters:
+echo "Submitting with the following parameters:"
 echo  
 for i in $INT_PARAMS
 do
@@ -77,25 +77,17 @@ fi
 
 echo Starting ...
 
-if [ "$BD_HUB" = "" ]
+if [ -z "$BD_HUB_URL" ]
 then
-   echo No HUB specified, Exiting. 
+   echo No Black Duck URL specified, Exiting. 
    exit 1
 fi
 
-#
-#  Validate and or download the scanner
-#
-#
-if [ ! -s scannercmd ]
+if [ -z "$API_TOKEN" ]
 then
-   SCAN_PACKAGE="https://$BD_HUB/download/scan.cli.zip"
-   curl -k -o scan.cli.zip $SCAN_PACKAGE
-   unzip scan.cli.zip 
-   find . -name scan.cli.sh | head -n 1 > scannercmd
+   echo No API token specified, Exiting. 
+   exit 1
 fi
-
-SCANNER=$(cat scannercmd)
 
 #
 #  Generate an array of available JAR files
@@ -116,16 +108,22 @@ RANDOM=$(date "+%s")
 echo "starting" 
 pos=0
 scans=0
+repeating=no
 while [ $pos -lt ${#jars[@]} ]
 do
   echo "do"
-  num_jars=$(( ( RANDOM % $MAX_COMPONENTS ) + 1 ))
-  end=$((pos + num_jars))
-  if [ $end -gt ${#jars[@]} ]
-  then
-    num_jars=$((#jars[@] - pos))
+  if [ "${repeating}" == "no" ]; then
+    num_jars=$(( ( RANDOM % $MAX_COMPONENTS ) + 1 ))
+    end=$((pos + num_jars))
+    if [ $end -gt ${#jars[@]} ]
+    then
+      num_jars=$((#jars[@] - pos))
+    fi
+    project_jars=("${jars[@]:$pos:$num_jars}")
   fi
-  project_jars=("${jars[@]:$pos:$num_jars}")
+
+  repeating=${REPEAT_SCAN}
+
   project_name="$PROJECT-$(($RANDOM))-on-${TIMESTAMP}"
   mkdir $project_name
 
@@ -133,7 +131,7 @@ do
   versions=$(( ( RANDOM % $MAX_VERSIONS ) + 1 ))
   for ((v=1; v<=$versions;v++))
   do
-    echo "do agian"
+    echo "do again"
     num_codelocations=$(( ( RANDOM % 10 ) + 1 ))
     # We don't want to overload code-locations unnecessafily.
     # Theres enough slowness as is.  MAX_CODELOCATIONS is a good handbrake
@@ -146,16 +144,30 @@ do
       echo "here we goooo"
       RANDOM=`date "+%s"`
       cl_name="codelocation-$((RANDOM))"
-      echo "1"
-      set +e
+      # echo "1"
+      # set +e
 
       mkdir -p $project_name/$cl_name
       echo "copy"
       ln -f ${project_jars[@]} $project_name/$cl_name
 
       echo "scanning"
-      SCAN_CLI_OPTS=-Dspring.profiles.active=bds-disable-scan-graph BD_HUB_PASSWORD=$BD_HUB_PASS $SCANNER -v --project $project_name --name $cl_name --release $v --host $BD_HUB --port $BD_HUB_PORT --insecure --username $BD_HUB_USER $project_name/$cl_name
- echo "incr"
+      DETECT_OPTIONS="--blackduck.url=${BD_HUB_URL} --blackduck.api.token=${API_TOKEN}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.project.name=${project_name} --detect.project.version.name=${v}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.code.location.name=${cl_name}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --blackduck.trust.cert=true"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.parallel.processors=-1"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=SIGNATURE_SCAN"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
+      if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=ALL"
+      fi
+      detect_log=/tmp/detect_$$.log
+      bash <(curl -s -L https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+      elapsed_time=$(get_elapsed_time $detect_log)
+      echo "Elapsed time for scan was ${elapsed_time} seconds"
+      rm $detect_log
+
       ((scans++))
       echo "Total scans submitted: $scans"
       if [ $scans -ge $MAX_SCANS ]
