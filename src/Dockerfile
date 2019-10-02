@@ -3,11 +3,11 @@
 # and process Postgres log data
 #
 
-FROM ubuntu:xenial
+FROM ubuntu:bionic
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl unzip
+    apt-get install -y wget unzip
 
 ADD hub_load /home/hub_load
 RUN chmod +x /home/hub_load/download-packages.sh

@@ -117,3 +117,4 @@ Note: Build  process will download archives listed in hub-load/src/packagelist. 
   - Added support for repeating the scan on the same set of components/jars
   - Added elapsed time in seconds which is scraped from detect log output
   - Added support for synchronous scans
+  - Replaced the component/jar download to use a much larger collection (>7000) of jars hosted on S3
