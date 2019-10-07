@@ -18,11 +18,14 @@ Container will look for the following environment variables. Default values coul
 | ----------------- | ------------------------------------------------------------ |
 | BD_HUB_URL        | The Black Duck URL (None)                                    |
 | API_TOKEN         | An API token with sufficient rights to perform scans and create project-versions(None) |
+| API_TIMEOUT       | The Synopsys detect api timeout value (300000ms). This value is passed to --detect.api.timeout on Synopsys detect |
+| BD_TIMEOUT        | The detect connection timeout (120s). This value is passed to --blackduck.timeout on Synopsys detect |
 | MAX_SCANS         | Maximum number of scans to perform before quitting (10)      |
 | MAX_CODELOCATIONS | Maximum number of code locations per version (1)             |
+| MIN_COMPONENTS    | Minimum number of randomly selected components (100)         |
 | MAX_COMPONENTS    | Maximum number of randomly selected components (150)         |
 | MAX_VERSIONS      | Maximum number of versions per project (5)                   |
-| REPEAT_SCAN       | If 'yes' repeat the scan using the same components each time (no) |
+| REPEAT_SCAN       | If 'yes' repeat the scan using the same components each time (no) for all projects |
 | SYNCHRONOUS_SCANS | If 'yes' do a policy check to force detect to wait for scan processing to finish, otherwise do asynchronous scan (yes) |
 
 ### Non-interactive invocation
