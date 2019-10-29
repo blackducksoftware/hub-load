@@ -33,7 +33,7 @@ MAX_VERSIONS          20
 Submitting scans with default parameters to . testhub.blackducksoftware.com 
 ```
 $ docker run --rm -e BD_HUB=testhub.blackducksoftware.com \
-                    gcr.io/gke-verification/github-blackducksoftware-hub-load:master \
+                    gsasig/hub-load \
 		    /home/hub_load/submit_scans.sh
 ```
 
@@ -44,7 +44,7 @@ $ docker run --rm -e BD_HUB=testhub.blackducksoftware.com \
                     -e MAX_SCANS=1 \
                     -e BD_HUB_USER=hubuser \
                     -e BD_HUB_PASS=password 
-                    gcr.io/gke-verification/github-blackducksoftware-hub-load:master \
+                    gsasig/hub-load \
 		    /home/hub_load/submit_scans.sh
 
 Processing defaults
@@ -73,7 +73,7 @@ $ docker run -it --rm -e BD_HUB=testhub.blackducksoftware.com \
                       -e MAX_SCANS=1 \
                       -e BD_HUB_USER=hubuser \
                       -e BD_HUB_PASS=password \
-                      gcr.io/gke-verification/github-blackducksoftware-hub-load:master
+                      gsasig/hub-load
 root@714cf6d9a957:/# INTERACTIVE=yes /home/hub_load/submit_scans.sh 
 
 Processing defaults
