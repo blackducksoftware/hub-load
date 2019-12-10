@@ -34,7 +34,6 @@ Submitting scans with default parameters to . testhub.blackducksoftware.com
 ```
 $ docker run --rm -e BD_HUB_URL=https:///testhub.blackducksoftware.com \
 									-e API_TOKEN=<the-token>
-                    gcr.io/gke-verification/github-blackducksoftware-hub-load:master \
 		    /home/hub_load/submit_scans.sh
 ```
 
@@ -44,7 +43,7 @@ Submitting scans overriding default parameters
 $ docker run --rm -e BD_HUB=testhub.blackducksoftware.com \
 										-e API_TOKEN=<the-token> \
                     -e MAX_SCANS=1 \
-                    gcr.io/gke-verification/github-blackducksoftware-hub-load:master \
+                    gsasig/hub-load \
 		    /home/hub_load/submit_scans.sh
 
 Processing defaults
@@ -72,7 +71,7 @@ $
 $ docker run -it --rm -e BD_HUB_URL=https://testhub.blackducksoftware.com \
 											-e API_TOKEN=<the-token> \
                       -e MAX_SCANS=1 \
-                      gcr.io/gke-verification/github-blackducksoftware-hub-load:master
+                      gsasig/hub-load
 root@714cf6d9a957:/# INTERACTIVE=yes /home/hub_load/submit_scans.sh 
 
 Processing defaults
