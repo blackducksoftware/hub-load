@@ -39,7 +39,7 @@ cd $WORKDIR
 # Defaults
 #
 BD_TIMEOUT=${BD_TIMEOUT:-120}
-API_TIMEOUT=${API_TIMEOUT:-300000}
+API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-10}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
 MAX_COMPONENTS=${MAX_COMPONENTS:-400}
@@ -176,9 +176,9 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.project.name=${project_name} --detect.project.version.name=${v}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.code.location.name=${cl_name}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --blackduck.trust.cert=true"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.api.timeout=${API_TIMEOUT}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.report.timeout=${API_TIMEOUT}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --blackduck.timeout=${BD_TIMEOUT}"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.parallel.processors=-1"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=SIGNATURE_SCAN"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
