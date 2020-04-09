@@ -13,11 +13,10 @@ mkdir -p $WORKDIR/jars
 # Otherwise, this script will pull down a jars.zip from S3 and unpack it to populate the jars directory
 # on the image by running this script in the docker build
 #
-if [ ! -d jars ]; then
-	echo "Downloading and unpacking jars.zip from S3"
-	wget https://bds-sa-data-files.s3.us-east-2.amazonaws.com/jars.zip
-	unzip jars.zip
-	echo "Removing jars.zip now that we have unzipped it"
-	rm jars.zip
-fi
+echo "Downloading and unpacking jars.zip from S3"
+wget https://bds-sa-data-files.s3.us-east-2.amazonaws.com/jars.zip
+unzip jars.zip
+echo "Removing jars.zip now that we have unzipped it"
+rm jars.zip
+
 
