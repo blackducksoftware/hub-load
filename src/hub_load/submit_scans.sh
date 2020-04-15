@@ -130,7 +130,7 @@ do
     end=$((start_pos + num_jars))
     if [ $end -gt ${#jars[@]} ]
     then
-      num_jars=$((#jars[@] - start_pos))
+      num_jars=$((${#jars[@]} - start_pos))
     fi
     project_jars=("${jars[@]:$pos:$num_jars}")
     echo "start_pos: $start_pos"
