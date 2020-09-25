@@ -7,7 +7,7 @@ Generates large anounts of HUB projects with versions and components.
 
 Container is available from gcr.io
 ```
-docker pull gcr.io/gke-verification/github-blackducksoftware-hub-load:master
+docker pull gsasig/hub-load
 ```
 
 ## Usage
