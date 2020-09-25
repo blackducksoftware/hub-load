@@ -33,18 +33,19 @@ Container will look for the following environment variables. Default values coul
 Submitting scans with default parameters to . testhub.blackducksoftware.com 
 ```
 $ docker run --rm -e BD_HUB_URL=https:///testhub.blackducksoftware.com \
-									-e API_TOKEN=<the-token>
-		    /home/hub_load/submit_scans.sh
+                   -e API_TOKEN=<the-token> \
+                   gsasig/hub-load \
+                   /home/hub_load/submit_scans.sh
 ```
 
 Submitting scans overriding default parameters 
 
 ```
 $ docker run --rm -e BD_HUB=testhub.blackducksoftware.com \
-										-e API_TOKEN=<the-token> \
-                    -e MAX_SCANS=1 \
-                    gsasig/hub-load \
-		    /home/hub_load/submit_scans.sh
+                 -e API_TOKEN=<the-token> \
+                 -e MAX_SCANS=1 \
+                 gsasig/hub-load \
+                 /home/hub_load/submit_scans.sh
 
 Processing defaults
 
@@ -69,7 +70,7 @@ $
 
 ```
 $ docker run -it --rm -e BD_HUB_URL=https://testhub.blackducksoftware.com \
-											-e API_TOKEN=<the-token> \
+                      -e API_TOKEN=<the-token> \
                       -e MAX_SCANS=1 \
                       gsasig/hub-load
 root@714cf6d9a957:/# INTERACTIVE=yes /home/hub_load/submit_scans.sh 
