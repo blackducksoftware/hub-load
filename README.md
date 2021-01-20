@@ -27,6 +27,7 @@ Container will look for the following environment variables. Default values coul
 | MAX_VERSIONS      | Maximum number of versions per project (5)                   |
 | REPEAT_SCAN       | If 'yes' repeat the scan using the same components each time (no) for all projects |
 | SYNCHRONOUS_SCANS | If 'yes' do a policy check to force detect to wait for scan processing to finish, otherwise do asynchronous scan (yes) |
+| DETECT_VERSION    | The Detect Version to use, you can specify the version e.g. 6.5.0 or if omitted will use the latest (LATEST) |
 
 ### Non-interactive invocation
 
