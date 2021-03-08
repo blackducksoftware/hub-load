@@ -47,13 +47,26 @@ MIN_COMPONENTS=${MIN_COMPONENTS:-200}
 MAX_VERSIONS=${MAX_VERSIONS:-5}
 SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
-DETECT_VERSION=${DETECT_VERSION:"LATEST"}
+DETECT_VERSION=${DETECT_VERSION}
+FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
+
+if [ -z "${DETECT_VERSION}" ]
+then
+  echo "Default Detect Version"
+  DETECT_VERSION="LATEST"
+fi
+
+if [ -z "${FAIL_ON_SEVERITIES}" ]
+then
+  echo "Default Fail on severities"
+  FAIL_ON_SEVERITIES="NONE"
+fi
 
 
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN BD_TIMEOUT API_TIMEOUT MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION"
+INT_PARAMS="BD_HUB_URL API_TOKEN BD_TIMEOUT API_TIMEOUT MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES"
 
 if [ "$INTERACTIVE" = "yes" ]
 then
@@ -104,6 +117,13 @@ then
   export DETECT_LATEST_RELEASE_VERSION=${DETECT_VERSION}
 else 
   echo "Using Latest Detect Version"
+fi
+
+if [ "${FAIL_ON_SEVERITIES}" != "NONE" ]
+then
+  echo "Using FAIL_ON_SEVERITIES ${FAIL_ON_SEVERITIES}"
+else 
+  echo "Not specifying FAIL_ON_SEVERITIES"
 fi
 
 #
@@ -191,7 +211,10 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=SIGNATURE_SCAN"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
-        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=ALL"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
+      fi
+      if [ "${FAIL_ON_SEVERITIES}" != "NONE" ]; then
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
       fi
       detect_log=/tmp/detect_$$.log
       bash <(curl -s -L https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
