@@ -26,7 +26,8 @@ Container will look for the following environment variables. Default values coul
 | MAX_COMPONENTS    | Maximum number of randomly selected components (150)         |
 | MAX_VERSIONS      | Maximum number of versions per project (5)                   |
 | REPEAT_SCAN       | If 'yes' repeat the scan using the same components each time (no) for all projects |
-| SYNCHRONOUS_SCANS | If 'yes' do a policy check to force detect to wait for scan processing to finish, otherwise do asynchronous scan (yes) |
+| SYNCHRONOUS_SCANS | If 'yes' will pass --detect.wait.for.results=true to Detect, otherwise do asynchronous scan assuming FAIL_ON_SEVERITIES is not passed (yes) |
+| FAIL_ON_SEVERITIES | If passed in will do a policy check for the specified severity to force detect to wait for scan processing to finish |
 | DETECT_VERSION    | The Detect Version to use, you can specify the version e.g. 6.5.0 or if omitted will use the latest (LATEST) |
 
 ### Non-interactive invocation
