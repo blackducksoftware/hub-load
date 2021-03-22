@@ -128,6 +128,7 @@ else
 fi
 
 if [ "${INSECURE_CURL}" == "yes" ]; then
+	echo "Setting environment variable DETECT_CURL_OPTS=--insecure"
 	export DETECT_CURL_OPTS=--insecure
 fi
 
