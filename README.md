@@ -18,8 +18,7 @@ Container will look for the following environment variables. Default values coul
 | ----------------- | ------------------------------------------------------------ |
 | BD_HUB_URL        | The Black Duck URL (None)                                    |
 | API_TOKEN         | An API token with sufficient rights to perform scans and create project-versions(None) |
-| API_TIMEOUT       | The Synopsys detect api timeout value (300000ms). This value is passed to --detect.api.timeout on Synopsys detect |
-| BD_TIMEOUT        | The detect connection timeout (120s). This value is passed to --blackduck.timeout on Synopsys detect |
+| API_TIMEOUT       | The Synopsys detect timeout value (300000ms). This value is passed to --detect.timeout on Synopsys detect |
 | MAX_SCANS         | Maximum number of scans to perform before quitting (10)      |
 | MAX_CODELOCATIONS | Maximum number of code locations per version (1)             |
 | MIN_COMPONENTS    | Minimum number of randomly selected components (100)         |
@@ -29,6 +28,7 @@ Container will look for the following environment variables. Default values coul
 | SYNCHRONOUS_SCANS | If 'yes' will pass --detect.wait.for.results=true to Detect, otherwise do asynchronous scan assuming FAIL_ON_SEVERITIES is not passed (yes) |
 | FAIL_ON_SEVERITIES | If passed in will do a policy check for the specified severity to force detect to wait for scan processing to finish |
 | DETECT_VERSION    | The Detect Version to use, you can specify the version e.g. 6.5.0 or if omitted will use the latest (LATEST) |
+| INSECURE_CURL     | Whether to use CURL in --insecure mode for Detect and downloading Detect (no). Default is 'no' and to enable set value to 'yes' |
 
 ### Non-interactive invocation
 
@@ -114,6 +114,16 @@ docker build -t <container tag> .
 Note: Build  process will download archives listed in hub-load/src/packagelist. This will result in a container ~5GB in size. 
 
 # Releases
+
+- Mar 22, 2021
+  - Updated detect.timeout parameter due to old options being deprecated
+  - Added INSECURE_CURL option to pass --insecure to curl inside the script and within Synopsys Detect.  By default this is 'no'.
+ 
+- Mar 8, 2021
+  - Added FAIL_ON_SEVERITIES to make it possible to specify the level of policy check to apply to cause failures.
+
+- Jan 20, 2021
+  - Added DETECT_VERSION so you can specify the version of Synopsys Detect.  However be aware that parameters change over time and so may not be compatible with the parameters being passed via submit_scans.sh.
 
 - Oct 2, 2019
   - Switching from scan.cli.sh to Synopsys Detect
