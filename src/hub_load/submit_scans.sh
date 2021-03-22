@@ -38,7 +38,6 @@ cd $WORKDIR
 #
 # Defaults
 #
-BD_TIMEOUT=${BD_TIMEOUT:-120}
 API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-10}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
@@ -49,6 +48,7 @@ SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
 DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
+INSECURE_CURL=${INSECURE_CURL:-no}
 
 if [ -z "${DETECT_VERSION}" ]
 then
@@ -66,7 +66,7 @@ fi
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN BD_TIMEOUT API_TIMEOUT MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES"
+INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL"
 
 if [ "$INTERACTIVE" = "yes" ]
 then
@@ -124,6 +124,11 @@ then
   echo "Using FAIL_ON_SEVERITIES ${FAIL_ON_SEVERITIES}"
 else 
   echo "Not specifying FAIL_ON_SEVERITIES"
+fi
+
+if [ "${INSECURE_CURL}" == "yes" ]; then
+	echo "Setting environment variable DETECT_CURL_OPTS=--insecure"
+	export DETECT_CURL_OPTS=--insecure
 fi
 
 #
@@ -205,8 +210,7 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.project.name=${project_name} --detect.project.version.name=${v}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.code.location.name=${cl_name}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --blackduck.trust.cert=true"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.report.timeout=${API_TIMEOUT}"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --blackduck.timeout=${BD_TIMEOUT}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.timeout=${API_TIMEOUT}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=SIGNATURE_SCAN"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
@@ -217,7 +221,7 @@ do
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
       fi
       detect_log=/tmp/detect_$$.log
-      bash <(curl -s -L https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
       echo "Elapsed time for scan was ${elapsed_time} seconds"
       rm $detect_log
