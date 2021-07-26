@@ -8,6 +8,7 @@ function readvar() {
    read temp
    if [ ! -z $temp ] ; then 
      eval $1=$temp
+
    fi
 }
 
