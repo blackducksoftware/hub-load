@@ -1,22 +1,22 @@
 version: '3'
 services:
   hub-load:
-    image: hubload-latest
+    image: a8e5901c33c3
     environment:
-      - BD_HUB_URL=https://dummy/
-      - API_TOKEN=dummy==
+      - BD_HUB_URL=https://karthik-bd-xlarg.saas-staging.blackduck.com/
+      - API_TOKEN=NTJjZGVkY2EtNTQxZC00ZGUxLTg4MDYtMDU4YTk2ZjVkY2NjOmVlNWJkNjNiLTFiMjAtNGJkYS1hNmI5LWExYmY2NjY4ODgwNw==
       - SYNCHRONOUS_SCANS=no
       - MAX_SCANS=3
       - MAX_CODELOCATIONS=1
       - MAX_VERSIONS=1
-      - RANDOM_SCANS=no
-      - FIXED_COMPONENTS=20
+      - MAX_COMPONENTS=100
+      - MIN_COMPONENTS=50
     #command: /home/hub_load/submit_scans.sh
-    command: /home/hub_load/submit_scans_fixed.sh
+    command: /home/hub_load/submit_scans_bdio.sh
     deploy:
       restart_policy:
         condition: any
       mode: replicated
-      replicas: 2
+      replicas: 1
       update_config:
         delay: 4s
