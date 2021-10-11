@@ -1,7 +1,7 @@
 version: '3'
 services:
   hub-load:
-    image: a8e5901c33c3
+    image: 6da9e49e5acb
     environment:
       - BD_HUB_URL=https://karthik-bd-xlarg.saas-staging.blackduck.com/
       - API_TOKEN=NTJjZGVkY2EtNTQxZC00ZGUxLTg4MDYtMDU4YTk2ZjVkY2NjOmVlNWJkNjNiLTFiMjAtNGJkYS1hNmI5LWExYmY2NjY4ODgwNw==
