@@ -17,7 +17,6 @@ ADD hub_load /home/hub_load
 
 # download-packages downloads a collection of jar files from S3 and places them in /home/hub_load/jars
 RUN chmod +x /home/hub_load/download-packages.sh
-RUN cd /home/hub_load
-#&& /home/hub_load/download-packages.sh
-RUN chmod +x /home/hub_load/submit_scans_bdio.sh
+RUN cd /home/hub_load && /home/hub_load/download-packages.sh
+RUN chmod +x /home/hub_load/submit_scans_fixed_ip.sh
 RUN pwd
