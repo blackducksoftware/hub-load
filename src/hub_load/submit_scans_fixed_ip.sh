@@ -51,6 +51,7 @@ RANDOM_SCANS=${RANDOM_SCANS:-no}
 DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
+WAIT_TIME=${WAIT_TIME:0}
 
 if [ -z "${DETECT_VERSION}" ]
 then
@@ -255,6 +256,7 @@ do
   done
   echo "Removing ${project_name}"
   rm -rf $project_name
+  sleep $WAIT_TIME
   # pos=$((pos + num_jars + 1))
 done
 

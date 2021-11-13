@@ -12,6 +12,7 @@ services:
       - RANDOM_SCANS=no
       - FIXED_COMPONENTS=100
       - DETECT_VERSION=7.3.0
+      - WAIT_TIME=0
     #command: /home/hub_load/submit_scans.sh
     command: /home/hub_load/submit_scans_fixed_ip.sh
     deploy:
