@@ -110,7 +110,7 @@ then
    exit 1
 fi
 
-if (( $MAX_COMPONENTS <= $MIN_COMPONENTS )); then
+if [[ "$MAX_COMPONENTS" -lt "$MIN_COMPONENTS" ]]; then
   echo "MAX_COMPONENTS must be greater than MIN_COMPONENTS"
   exit 1
 fi
