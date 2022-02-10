@@ -222,7 +222,9 @@ do
     do
       echo "code location: $(( cl + 1 ))"
       RANDOM=`date "+%s"`
-      cl_name="cl-${start_pos}"
+      container_id=`cat /etc/hostname`
+      echo "Container ID: $container_id"
+      cl_name="$container_id-cl-${start_pos}"
       echo "code location name: $cl_name"
       # echo "1"
       # set +e
