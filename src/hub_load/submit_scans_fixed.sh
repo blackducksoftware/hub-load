@@ -84,7 +84,7 @@ echo "Submitting with the following parameters:"
 echo  
 for i in $INT_PARAMS
 do
-#   echo $'\t' $i ${!i}
+   echo $'\t' $i ${!i}
 done
 
 echo 
