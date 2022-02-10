@@ -155,6 +155,7 @@ pos=0
 scans=0
 repeating=no
 start_pos=0
+cl_pos=0
 #num_jars=100
 end=10
 # while [ $pos -lt ${#jars[@]} ]
@@ -181,6 +182,7 @@ do
   # checking for Random Scans Flag. If the flag is set to No, components chosen to submit scans will be repeatable between releases.
   elif [  "${RANDOM_SCANS}" == "no"  ]; then
     start_pos=$((start_pos + 1))
+    cl_pos=$((cl_pos + 1))
 
 # assigning the number of components to be submitted per scan based on the total number of jar files available and number of components chosen by the tester.
     num_jars=$(( FIXED_COMPONENTS > ${#jars[@]} ? ${#jars[@]} : FIXED_COMPONENTS ))
@@ -224,7 +226,7 @@ do
       RANDOM=`date "+%s"`
       container_id=`cat /etc/hostname`
       echo "Container ID: $container_id"
-      cl_name="$container_id-cl-${start_pos}"
+      cl_name="$container_id-cl-${cl_pos}"
       echo "code location name: $cl_name"
       # echo "1"
       # set +e
