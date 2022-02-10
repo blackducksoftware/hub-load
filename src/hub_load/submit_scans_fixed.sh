@@ -84,7 +84,7 @@ echo "Submitting with the following parameters:"
 echo  
 for i in $INT_PARAMS
 do
-   echo $'\t' $i ${!i}
+#   echo $'\t' $i ${!i}
 done
 
 echo 
@@ -222,7 +222,7 @@ do
     do
       echo "code location: $(( cl + 1 ))"
       RANDOM=`date "+%s"`
-      cl_name="${project_name}-v${v}-cl-$((RANDOM))"
+      cl_name="cl-${start_pos}"
       echo "code location name: $cl_name"
       # echo "1"
       # set +e
@@ -248,7 +248,7 @@ do
       fi
       detect_log=/tmp/detect_$$.log
       echo "Final Detect Options: $DETECT_OPTIONS"
-      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+      #bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
       echo "Elapsed time for scan was ${elapsed_time} seconds"
       rm $detect_log
