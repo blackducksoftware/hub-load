@@ -213,7 +213,9 @@ while ((scans < MAX_SCANS)); do
     for ((cl = 0; cl < $num_codelocations; cl++)); do
       echo "code location: $((cl + 1))"
       RANDOM=$(date "+%s")
-      cl_name="${project_name}-v${v}-cl-$((RANDOM))"
+      container_id=`cat /etc/hostname`
+      echo "Container ID: $container_id"
+      cl_name="$container_id-cl-${cl_pos}"
       echo "code location name: $cl_name"
       # echo "1"
       # set +e
