@@ -12,11 +12,11 @@ services:
       - RANDOM_SCANS=no
       - FIXED_COMPONENTS=20
     #command: /home/hub_load/submit_scans.sh
-    command: /home/hub_load/submit_scans_fixed.sh
+    command: /home/hub_load/submit_scans_fixed_binary.sh
     deploy:
       restart_policy:
         condition: any
       mode: replicated
-      replicas: 2
+      replicas: 1
       update_config:
         delay: 4s
