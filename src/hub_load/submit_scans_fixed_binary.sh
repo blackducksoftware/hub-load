@@ -40,6 +40,7 @@ cd $WORKDIR
 #
 
 
+
 BD_HUB_URL=${BD_HUB_URL:-https://}
 API_TOKEN=${API_TOKEN:-Y2Y0N}
 API_TIMEOUT=${API_TIMEOUT:-300}
@@ -47,14 +48,26 @@ MAX_SCANS=${MAX_SCANS:-3}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
 MAX_COMPONENTS=${MAX_COMPONENTS:-400}
 MIN_COMPONENTS=${MIN_COMPONENTS:-200}
-FIXED_COMPONENTS=${FIXED_COMPONENTS:-100}
+FIXED_COMPONENTS=${FIXED_COMPONENTS:-1}
 MAX_VERSIONS=${MAX_VERSIONS:-1}
-SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
+SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-no}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
 RANDOM_SCANS=${RANDOM_SCANS:-no}
 DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
+WAIT_TIME=${WAIT_TIME:-30}
+TEST_DURATION=${TEST_DURATION:-1}
+TARGET_DURATION=0
+
+if [ -z "$TEST_DURATION" ]; then
+  echo "Scans will be submitted as fast it can, continuing."
+  exit 1
+else
+  #target rate / Scan
+  TARGET_DURATION=$(((TEST_DURATION * 3600) / MAX_SCANS))
+  echo "Scans will be submitted at the rate of 1 scan per ${TARGET_DURATION} seconds"
+fi
 
 if [ -z "${DETECT_VERSION}" ]
 then
@@ -237,6 +250,7 @@ do
       bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
       echo "Elapsed time for scan was ${elapsed_time} seconds"
+      WAIT_TIME=$(( TARGET_DURATION  - elapsed_time ))
       rm $detect_log
       ((scans++))
     done
@@ -244,5 +258,7 @@ do
   done
   echo "Removing ${project_name}"
   rm -rf $project_name
+  echo "Sleeping for ${WAIT_TIME} seconds based on the ${TARGET_DURATION} seconds per scan"
+  sleep "$WAIT_TIME"
   # pos=$((pos + num_jars + 1))
 done
