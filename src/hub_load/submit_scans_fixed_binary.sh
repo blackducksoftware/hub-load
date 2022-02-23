@@ -127,10 +127,6 @@ then
    exit 1
 fi
 
-if (( $MAX_COMPONENTS <= $MIN_COMPONENTS )); then
-  echo "MAX_COMPONENTS must be greater than MIN_COMPONENTS"
-  exit 1
-fi
 
 if [ "${DETECT_VERSION}" != "LATEST" ]
 then
@@ -157,7 +153,8 @@ fi
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-executables=($(find . ! \( -name "*bdio" -o -name "." \) -print | sort -V))
+executables=($(find . \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V))
+executableFile=($(find . -type f \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V |  xargs  basename -a))
 IFS=$OIFS;
 
 echo ${#executables[@]} binary files located
@@ -204,7 +201,7 @@ do
     echo "num_jars: $num_jars"
     echo "end: $end"
     echo "jars in project_jars: ${#project_jars[@]}"
-    echo "project_jars: ${project_jars[@]}"
+    echo "project_jars: ${executableFile[@]}"
 
   fi
 
@@ -244,7 +241,7 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.timeout=${API_TIMEOUT}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=BINARY_SCAN"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${executableFile[@]}"
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
