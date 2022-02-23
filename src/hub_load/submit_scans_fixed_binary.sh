@@ -153,8 +153,8 @@ fi
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-executables=($(find . \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V))
-executableFile=($(find . -type f \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V |  xargs  basename -a))
+executables=($(find jars \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V))
+executableFile=($(find jars -type f \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V |  xargs  basename -a))
 IFS=$OIFS;
 
 echo ${#executables[@]} binary files located
@@ -241,7 +241,7 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.timeout=${API_TIMEOUT}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=BINARY_SCAN"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${executableFile[@]}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${executableFile[1]}"
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
