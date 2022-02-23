@@ -44,7 +44,7 @@ API_TOKEN=${API_TOKEN:-NTJjZGVkY2EtNTQxZC00ZGUxLTg4MDYtMDU4YTk2ZjVkY2NjOmVlNWJkN
 API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-8000}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
-FIXED_COMPONENTS=${FIXED_COMPONENTS:-100}
+FIXED_COMPONENTS=${FIXED_COMPONENTS:-1}
 MAX_VERSIONS=${MAX_VERSIONS:-1}
 SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-no}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
@@ -157,10 +157,10 @@ fi
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-jars=($(find . -name \*.jar -print | sort -V))
+executables=($(find . ! \( -name "*bdio" -o -name "." \) -print | sort -V))
 IFS=$OIFS;
 
-echo ${#jars[@]} jar files located
+echo ${#executables[@]} binary files located
 echo "...................................."
 
 
@@ -181,41 +181,24 @@ end=10
 while (( scans < MAX_SCANS ))
 do
   echo "do"
-  if [ "${repeating}" == "no" ] && [ "${RANDOM_SCANS}" == "yes" ]; then
-    start_pos=$(( ( RANDOM % ${#jars[@]} ) ))
-    num_jars=$(( ( RANDOM % $MAX_COMPONENTS ) + 1 ))
-    # use maximum of num_jars OR MIN_COMPONENTS to set lower threshold for number of components
-    num_jars=$(( num_jars > MIN_COMPONENTS ? num_jars : MIN_COMPONENTS ))
-    end=$((start_pos + num_jars))
-    if [ $end -gt ${#jars[@]} ]
-    then
-      num_jars=$((${#jars[@]} - start_pos))
-    fi
-    project_jars=("${jars[@]:$pos:$num_jars}")
-    echo "start_pos: $start_pos"
-    echo "num_jars: $num_jars"
-    echo "end: $end"
-    echo "jars in project_jars: ${#project_jars[@]}"
-    echo "project_jars: ${project_jars[@]}"
-  # checking for Random Scans Flag. If the flag is set to No, components chosen to submit scans will be repeatable between releases.
-  elif [  "${RANDOM_SCANS}" == "no"  ]; then
+   if [  "${RANDOM_SCANS}" == "no"  ]; then
     start_pos=$((start_pos + 1))
     cl_pos=$((cl_pos + 1))
 
 # assigning the number of components to be submitted per scan based on the total number of jar files available and number of components chosen by the tester.
-    num_jars=$(( FIXED_COMPONENTS > ${#jars[@]} ? ${#jars[@]} : FIXED_COMPONENTS ))
+    num_jars=$(( FIXED_COMPONENTS > ${#executables[@]} ? ${#executables[@]} : FIXED_COMPONENTS ))
     end=$((start_pos + num_jars))
 
 #Since the jar files files are submited by increasing the value of start and end index, condition is added to check
 # whether the end index value reached the total number of files and if reached resetting it back to 0
-    if [ $end -gt ${#jars[@]} ]
+    if [ $end -gt ${#executables[@]} ]
     #if [ $end -gt 744 ]
     then
       start_pos=0
       end=$num_jars
     fi
     #start and end index for choosing the jars are assigned.
-    project_jars=("${jars[@]:$start_pos:$num_jars}")
+    project_jars=("${executables[@]:$start_pos:$num_jars}")
     echo "FIXED_COMPONENTS: $FIXED_COMPONENTS"
     echo "start_pos: $start_pos"
     echo "num_jars: $num_jars"
@@ -244,7 +227,7 @@ do
       RANDOM=`date "+%s"`
       container_id=`cat /etc/hostname`
       echo "Container ID: $container_id"
-      cl_name="$container_id-cl-${cl_pos}"
+      cl_name="$container_id-binary-cl-${cl_pos}"
       echo "code location name: $cl_name"
       # echo "1"
       # set +e
