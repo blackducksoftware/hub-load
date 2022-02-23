@@ -153,7 +153,7 @@ fi
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-executables=($(find jars \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V))
+executables=($(find jars \( -name "*.exe" -o -name "*.tar.gz"  -o -name "*.tgz"   \) -print | sort -V))
 executableFile=($(find jars -type f \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V |  xargs  basename -a))
 IFS=$OIFS;
 
@@ -208,7 +208,7 @@ do
   repeating=${REPEAT_SCAN}
 
   project_name="$PROJECT-$(($RANDOM))-on-${TIMESTAMP}"
-  echo "project_name: ${project_name}"
+  echo "project_name: ${project_name}"u
   mkdir $project_name
 
   RANDOM=`date "+%s"`
@@ -241,7 +241,7 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.timeout=${API_TIMEOUT}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=BINARY_SCAN"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${executableFile[1]}"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${executableFile[start_pos]}"
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
