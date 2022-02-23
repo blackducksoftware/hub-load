@@ -154,7 +154,7 @@ fi
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
 executables=($(find jars \( -name "*.exe" -o -name "*.tar.gz"  -o -name "*.tgz"   \) -print | sort -V))
-executableFile=($(find jars -type f \( -name "*.exe" -o -name "*.tar.gz"   \) -print | sort -V |  xargs  basename -a))
+executableFile=($(find jars -type f \( -name "*.exe" -o -name "*.tar.gz" -o -name "*.tgz"   \) -print | sort -V |  xargs  basename -a))
 IFS=$OIFS;
 
 echo ${#executables[@]} binary files located
