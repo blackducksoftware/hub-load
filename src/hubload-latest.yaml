@@ -17,10 +17,11 @@ services:
     command: /home/hub_load/submit_scans_fixed_binary.sh
     deploy:
       restart_policy:
-        condition: any
+        condition: on-failure
+        max_attempts: 0
       mode: replicated
-      replicas: 1
+      replicas: 5
       update_config:
-        delay: 4s
+        delay: 10s
 
 
