@@ -1,0 +1,25 @@
+version: '3'
+services:
+  hub-load:
+    image: hubload-latest
+    environment:
+      - BD_HUB_URL=https://dummy/
+      - API_TOKEN=dummy==
+      - SYNCHRONOUS_SCANS=no
+      - MAX_SCANS=3
+      - MAX_CODELOCATIONS=1
+      - MAX_VERSIONS=1
+      - RANDOM_SCANS=no
+      - DETECT_VERSION=7.5.0
+      - WAIT_TIME=30
+      - TEST_DURATION=1
+    #command: /home/hub_load/submit_scans.sh
+    command: /home/hub_load/submit_scans_fixed_binary.sh
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 0
+      mode: replicated
+      replicas: 5
+      update_config:
+        delay: 10s
