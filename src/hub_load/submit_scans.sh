@@ -14,11 +14,11 @@ function readvar() {
 function get_elapsed_time() {
   duration_line=$(cat $1 | awk '/Detect duration/ {print}')
   # echo "Duration line: $duration_line" 1>&2
-  hours=$(echo $duration_line | awk '{print $8}' | sed -e "s/h//")
+  hours=$(echo $duration_line | awk '{print $9}' | sed -e "s/h//")
   # echo "Hours: $hours"  1>&2
-  minutes=$(echo $duration_line | awk '{print $9}' | sed -e "s/m//")
+  minutes=$(echo $duration_line | awk '{print $10}' | sed -e "s/m//")
   # echo "Minutes: $minutes"  1>&2
-  seconds=$(echo $duration_line | awk '{print $10}' | sed -e "s/s//")
+  seconds=$(echo $duration_line | awk '{print $11}' | sed -e "s/s//")
   # echo "Seconds: $seconds"  1>&2
 
   total_elapsed_seconds=$(( $hours * 3600 + $minutes * 60 + $seconds))
@@ -221,7 +221,7 @@ do
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
       fi
       detect_log=/tmp/detect_$$.log
-      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect8.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
       echo "Elapsed time for scan was ${elapsed_time} seconds"
       rm $detect_log
