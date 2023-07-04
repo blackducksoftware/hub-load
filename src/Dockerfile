@@ -3,7 +3,7 @@
 # and process Postgres log data
 #
 
-FROM ubuntu:bionic
+FROM ubuntu:focal
 
 RUN apt-get update && \
     apt-get upgrade -y && \
