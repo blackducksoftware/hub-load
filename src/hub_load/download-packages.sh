@@ -4,6 +4,7 @@
 
 WORKDIR=$(dirname $0)
 mkdir -p $WORKDIR/jars
+mkdir -p $WORKDIR/sources
 
 #
 # if the jars directory already exists it is assumed that you have created and populated the jars
@@ -20,4 +21,10 @@ rm -rf __MACOSX
 echo "Removing jars.zip now that we have unzipped it"
 rm jars.zip
 
+echo "Downloading and unpacking sources.zip from S3"
+wget https://bds-sa-data-files.s3.us-east-2.amazonaws.com/sources.zip
+unzip sources.zip
+rm -rf __MACOSX
+echo "Removing sourcesi.zip now that we have unzipped it"
+rm sources.zip
 

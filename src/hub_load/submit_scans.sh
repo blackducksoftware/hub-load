@@ -40,15 +40,22 @@ cd $WORKDIR
 #
 API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-10}
+SNIPPETS=${SNIPPETS:-no}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
 MAX_COMPONENTS=${MAX_COMPONENTS:-400}
 MIN_COMPONENTS=${MIN_COMPONENTS:-200}
 MAX_VERSIONS=${MAX_VERSIONS:-5}
+if [ "${SNIPPETS}" == "yes" ]; then
+    MAX_COMPONENTS=${MAX_COMPONENTS:-15}
+    MIN_COMPONENTS=${MIN_COMPONENTS:-10}
+    MAX_VERSIONS=${MAX_VERSIONS:-5}
+fi
 SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
 DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
+SNIPPETS=${SNIPPETS:-no}
 
 if [ -z "${DETECT_VERSION}" ]
 then
@@ -66,7 +73,7 @@ fi
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL"
+INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL"
 
 if [ "$INTERACTIVE" = "yes" ]
 then
@@ -136,7 +143,12 @@ fi
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-jars=($(find . -name \*.jar -print))
+if [ "${SNIPPETS}" == "yes" ]
+then
+	jars=($(find . -name \*.tar.gz -print))
+else
+	jars=($(find . -name \*.jar -print))
+fi
 IFS=$OIFS;
 
 echo ${#jars[@]} jar files located
@@ -214,6 +226,10 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=SIGNATURE_SCAN"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
+      if  [ "${SNIPPETS}" == "yes" ]; then
+	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING"
+	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.upload.source.mode=true"
+      fi
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
