@@ -20,6 +20,7 @@ Container will look for the following environment variables. Default values coul
 | API_TOKEN         | An API token with sufficient rights to perform scans and create project-versions(None) |
 | API_TIMEOUT       | The Synopsys detect timeout value (300000ms). This value is passed to --detect.timeout on Synopsys detect |
 | MAX_SCANS         | Maximum number of scans to perform before quitting (10)      |
+| SNIPPETS          | Perform source code scan with snippets                       |
 | MAX_CODELOCATIONS | Maximum number of code locations per version (1)             |
 | MIN_COMPONENTS    | Minimum number of randomly selected components (100)         |
 | MAX_COMPONENTS    | Maximum number of randomly selected components (150)         |
@@ -115,6 +116,12 @@ Note: Build  process will download archives listed in hub-load/src/packagelist. 
 
 # Releases
 
+- Aug 14, 2023
+  - Updated base image to ubuntu:jammy
+  - Updated Java to version 17
+  - Added sourece code data to enable snippet scan functionality
+  - Added snippet scan capbility
+     
 - Mar 22, 2021
   - Updated detect.timeout parameter due to old options being deprecated
   - Added INSECURE_CURL option to pass --insecure to curl inside the script and within Synopsys Detect.  By default this is 'no'.
