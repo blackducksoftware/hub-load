@@ -38,20 +38,25 @@ cd $WORKDIR
 #
 # Defaults
 #
+BD_HUB_URL=https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com
+API_TOKEN=NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA==
 API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-10}
-SNIPPETS=${SNIPPETS:-no}
+SNIPPETS=${SNIPPETS:-yes}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
 MAX_COMPONENTS=${MAX_COMPONENTS:-400}
 MIN_COMPONENTS=${MIN_COMPONENTS:-200}
+FIXED_COMPONENTS=${FIXED_COMPONENTS:-20}
 MAX_VERSIONS=${MAX_VERSIONS:-5}
 if [ "${SNIPPETS}" == "yes" ]; then
     MAX_COMPONENTS=${MAX_COMPONENTS:-15}
     MIN_COMPONENTS=${MIN_COMPONENTS:-10}
+    FIXED_COMPONENTS=${FIXED_COMPONENTS:-20}
     MAX_VERSIONS=${MAX_VERSIONS:-5}
 fi
 SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
+RANDOM_SCANS=${RANDOM_SCANS:-no}
 DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
@@ -73,7 +78,7 @@ fi
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL"
+INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL"
 
 if [ "$INTERACTIVE" = "yes" ]
 then
@@ -163,12 +168,15 @@ echo "starting"
 pos=0
 scans=0
 repeating=no
+start_pos=0
+cl_pos=0
+end=10
 # while [ $pos -lt ${#jars[@]} ]
 
 while (( scans < MAX_SCANS ))
 do
   echo "do"
-  if [ "${repeating}" == "no" ]; then
+  if [ "${repeating}" == "no" ] && [ "${RANDOM_SCANS}" == "yes" ]; then
     start_pos=$(( ( RANDOM % ${#jars[@]} ) ))
     num_jars=$(( ( RANDOM % $MAX_COMPONENTS ) + 1 ))
     # use maximum of num_jars OR MIN_COMPONENTS to set lower threshold for number of components
@@ -184,6 +192,31 @@ do
     echo "end: $end"
     echo "jars in project_jars: ${#project_jars[@]}"
     echo "project_jars: ${project_jars[@]}"
+  # checking for Random Scans Flag. If the flag is set to No, components chosen to submit scans will be repeatable between releases.
+  elif [  "${RANDOM_SCANS}" == "no"  ]; then
+  start_pos=$((start_pos + 1))
+  cl_pos=$((cl_pos + 1))
+
+  # assigning the number of components to be submitted per scan based on the total number of jar files available and number of components chosen by the tester.
+  num_jars=$(( FIXED_COMPONENTS > ${#jars[@]} ? ${#jars[@]} : FIXED_COMPONENTS ))
+  end=$((start_pos + num_jars))
+
+  #Since the jar files files are submited by increasing the value of start and end index, condition is added to check
+  # whether the end index value reached the total number of files and if reached resetting it back to 0
+  if [ $end -gt ${#jars[@]} ]
+  then
+  start_pos=0
+  end=$num_jars
+  fi
+  #start and end index for choosing the jars are assigned.
+  project_jars=("${jars[@]:$start_pos:$num_jars}")
+  echo "FIXED_COMPONENTS: $FIXED_COMPONENTS"
+  echo "start_pos: $start_pos"
+  echo "num_jars: $num_jars"
+  echo "end: $end"
+  echo "jars in project_jars: ${#project_jars[@]}"
+  echo "project_jars: ${project_jars[@]}"
+
   fi
 
   repeating=${REPEAT_SCAN}
