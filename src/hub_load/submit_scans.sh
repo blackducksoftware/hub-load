@@ -38,8 +38,10 @@ cd $WORKDIR
 #
 # Defaults
 #
-BD_HUB_URL=https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com
-API_TOKEN=NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA==
+#BD_HUB_URL=https://karthik-bd-med.saas-staging.blackduck.com
+#API_TOKEN=MzhjNTliNGYtYTk5Mi00NTI3LThjNDEtNmNiMjA4NDZmNjdiOmRiNmIxYTM4LTgxOWEtNGUwNC1iZWY3LWU4Y2Q3YTFiODhlNQ==
+#BD_HUB_URL=https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com
+#API_TOKEN=NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA==
 API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-10}
 SNIPPETS=${SNIPPETS:-yes}
@@ -54,13 +56,25 @@ if [ "${SNIPPETS}" == "yes" ]; then
     FIXED_COMPONENTS=${FIXED_COMPONENTS:-20}
     MAX_VERSIONS=${MAX_VERSIONS:-5}
 fi
-SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
+SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-no}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
 RANDOM_SCANS=${RANDOM_SCANS:-no}
 DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
 SNIPPETS=${SNIPPETS:-no}
+WAIT_TIME=${WAIT_TIME:-30}
+TEST_DURATION=${TEST_DURATION:-1}
+TARGET_DURATION=0
+
+if [ -z "$TEST_DURATION" ]; then
+  echo "Scans will be submitted as fast it can, continuing."
+  exit 1
+else
+#target rate / Scan
+TARGET_DURATION=$(((TEST_DURATION * 3600) / MAX_SCANS))
+echo "Scans will be submitted at the rate of 1 scan per ${TARGET_DURATION} seconds"
+fi
 
 if [ -z "${DETECT_VERSION}" ]
 then
@@ -273,6 +287,7 @@ do
       bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect8.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
       echo "Elapsed time for scan was ${elapsed_time} seconds"
+      WAIT_TIME=$(( TARGET_DURATION  - elapsed_time ))
       rm $detect_log
 
       ((scans++))
@@ -281,5 +296,7 @@ do
   done
   echo "Removing ${project_name}"
   rm -rf $project_name
+  echo "Sleeping for ${WAIT_TIME} seconds based on the ${TARGET_DURATION} seconds per scan"
+  sleep "$WAIT_TIME"
   # pos=$((pos + num_jars + 1))
 done
