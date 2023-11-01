@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: load-test
-  namespace: loadtest
+  namespace: loadtest # This namespace should pre-exist in the K8S cluster
   labels:
     bdhub: load-test
 spec:
   selector:
     matchLabels:
       bdhub: load-test
-  replicas: 40
+  replicas: 2000 #number of replicas to achieve the volume of scans we need.
   template:
     metadata:
       labels:
@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: load-test
-          image: gcr.io/saas-hub-stg/hub-load:snippets
+          image: gcr.io/saas-hub-stg/hub-load:snippets # Image location in GCP
           resources:
             requests:
               memory: "4086Mi"
@@ -27,17 +27,23 @@ spec:
             - '-c'
             - /home/hub_load/submit_scans.sh
           env:
-            - name: API_TOKEN
-              value: "NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA=="
-            - name: BD_HUB_URL
-              value: "https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com"
-            - name: MAX_SCANS
-              value: "3"
-            - name: SYNCHRONOUS_SCANS
+            - name: API_TOKEN      #API Token from HUB for submitting the Scans.
+              value: "NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA==" #
+            - name: BD_HUB_URL     # HUB URL
+              value: "https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com" #
+            - name: MAX_SCANS      # Maximum number of scans a replica of HUB LOad will need to submit for the whole test durarion. It is related to TEST_DURATION field,
+              value: "4"
+            - name: SYNCHRONOUS_SCANS  # Mode of scan
               value: "no"
-            - name: MAX_CODELOCATIONS
+            - name: MAX_CODELOCATIONS # Number of code locations
               value: "1"
-            - name: FIXED_COMPONENTS
-              value: "20"
-            - name: SNIPPETS
+            - name: FIXED_COMPONENTS # Number of tar.gz files to be used. 20 files will submit scans of size 60 MB to 120 MB. Adjust accordingly to suit your requireemnts.
+              value: "12"
+            - name: SNIPPETS #Snippets
               value: "yes"
+            - name: WAIT_TIME #wait time between subsequent scans to better control the throttling of scan submissions.
+              value: "30"
+            - name: TEST_DURATION # total test duration in hours.
+              value: "1"
+            - name: MAX_VERSIONS # total test duration in hours.
+              value: "1"

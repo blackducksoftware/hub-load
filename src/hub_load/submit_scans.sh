@@ -40,8 +40,8 @@ cd $WORKDIR
 #
 #BD_HUB_URL=https://karthik-bd-med.saas-staging.blackduck.com
 #API_TOKEN=MzhjNTliNGYtYTk5Mi00NTI3LThjNDEtNmNiMjA4NDZmNjdiOmRiNmIxYTM4LTgxOWEtNGUwNC1iZWY3LWU4Y2Q3YTFiODhlNQ==
-#BD_HUB_URL=https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com
-#API_TOKEN=NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA==
+BD_HUB_URL=https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com
+API_TOKEN=NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA==
 API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-10}
 SNIPPETS=${SNIPPETS:-yes}

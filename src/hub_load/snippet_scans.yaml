@@ -1,0 +1,25 @@
+version: '3'
+services:
+  hub-load:
+    image: snippets-latest
+    environment:
+      - BD_HUB_URL=https://MY_HUB_IP_ADDRESS
+      - API_TOKEN=MY_HUB_API_ACCESS_TOKEN
+      - SYNCHRONOUS_SCANS=no
+      - MAX_SCANS=4 # Maximum number of scans a replica of HUB LOad will need to submit for the whole test durarion. It is related to TEST_DURATION field,
+      - MAX_CODELOCATIONS=1
+      - FIXED_COMPONENTS=15 #Number of tar.gz files to be used. 20 files will submit scans of size 60 MB to 120 MB. Adjust accordingly to suit your requireemnts.
+      - MAX_VERSIONS=1
+      - TEST_DURATION=1
+      - SNIPPETS=yes
+    command: /home/hub_load/submit_scans.sh
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 0
+      mode: replicated
+      replicas: 2
+      update_config:
+        delay: 4s
+
+
