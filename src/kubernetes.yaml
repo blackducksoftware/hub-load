@@ -28,9 +28,9 @@ spec:
             - /home/hub_load/submit_scans.sh
           env:
             - name: API_TOKEN      #API Token from HUB for submitting the Scans.
-              value: "NjJlNTRlNDAtZDI2MS00NzVmLTkxODktZjA4OWZmYzk4ZjcwOjc0ZjRmOGZkLWVmNzEtNDdlMi1iM2VhLWZhMzJiYmEzM2FkNA==" #
+              value: "Dummy" #
             - name: BD_HUB_URL     # HUB URL
-              value: "https://broadcom-sw-clone-2023-08-17.saas-staging.blackduck.com" #
+              value: "https://Dummy" #
             - name: MAX_SCANS      # Maximum number of scans a replica of HUB LOad will need to submit for the whole test durarion. It is related to TEST_DURATION field,
               value: "4"
             - name: SYNCHRONOUS_SCANS  # Mode of scan
