@@ -3,8 +3,8 @@ services:
   hub-load:
     image: artifactory.internal.synopsys.com:5002/hub_load_ip
     environment:
-      - BD_HUB_URL=https://karthik-bd-xlarg.saas-staging.blackduck.com/
-      - API_TOKEN=NTJjZGVkY2EtNTQxZC00ZGUxLTg4MDYtMDU4YTk2ZjVkY2NjOmVlNWJkNjNiLTFiMjAtNGJkYS1hNmI5LWExYmY2NjY4ODgwNw==
+      - BD_HUB_URL=https://dddd/
+      - API_TOKEN=dddd
       - SYNCHRONOUS_SCANS=no
       - MAX_SCANS=10
       - MAX_CODELOCATIONS=1
