@@ -6,8 +6,8 @@
 
 NUM_SCAN_CLIENTS=${1:-5}
 
-export BD_HUB_URL=https://ec2-18-219-178-195.us-east-2.compute.amazonaws.com
-export API_TOKEN=MWMwNTUxZTktMDBjZi00YTAyLTkxN2ItNzQ4MDNkMjQzNjExOjMyZDljMWEyLTNjMzYtNDZjYi04ODBhLTRiZDg3OWU1YjYxZA==
+export BD_HUB_URL=https://dummy
+export API_TOKEN=dummy
 export API_TIMEOUT=600000
 export MAX_SCANS=2
 export MAX_VERSIONS=1
