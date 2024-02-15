@@ -1,0 +1,24 @@
+version: '3'
+services:
+  hub-load:
+    image: hubload-latest
+    environment:
+      - BD_HUB_URL=https://us03-qa-hub-perf08.nprd.sig.synopsys.com
+      - API_TOKEN=ZjYyNjYzNTAtMWQ1OC00MDQxLWFjMWUtYzIxMmQ4MzE4NzZhOmM4NmUwMmMyLWQyNTgtNDBjMi1hOGU0LTE1YjU4NDk5MjAwYw==
+      - SYNCHRONOUS_SCANS=no
+      - MAX_SCANS=50
+      - MAX_CODELOCATIONS=1
+      - MAX_VERSIONS=1
+      - RANDOM_SCANS=no
+      - FIXED_COMPONENTS=120
+      - TEST_DURATION=1
+    #command: /home/hub_load/submit_scans.sh
+    command: /home/hub_load/submit_scans_fixed.sh
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 0
+      mode: replicated
+      replicas: 1
+      update_config:
+        delay: 4s
