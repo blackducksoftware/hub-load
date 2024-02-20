@@ -38,16 +38,17 @@ cd $WORKDIR
 #
 # Defaults
 #
-BD_HUB_URL=${BD_HUB_URL:-https://dummy}
-API_TOKEN=${API_TOKEN:-dummy}
-API_TIMEOUT=${API_TIMEOUT:-60}
+MAX_SCANS=${MAX_SCANS:-1}
+BD_HUB_URL=${BD_HUB_URL:-https://us03-eng-pappu01.nprd.sig.synopsys.com}
+API_TOKEN=${API_TOKEN:-ZmQ2ZWVmMjQtZWUyMy00ZmYzLWE3OTEtZWNjMjNjYjNlMzQ3OjA0YjMzZjA5LWRmMGQtNDM3ZC05NmRjLWUyODU5MTc0YTQyMA==}
+API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-3}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
 MAX_COMPONENTS=${MAX_COMPONENTS:-400}
 MIN_COMPONENTS=${MIN_COMPONENTS:-200}
-FIXED_COMPONENTS=${FIXED_COMPONENTS:-100}
+FIXED_COMPONENTS=${FIXED_COMPONENTS:-1}
 MAX_VERSIONS=${MAX_VERSIONS:-1}
-SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-yes}
+SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-no}
 REPEAT_SCAN=${REPEAT_SCAN:-no}
 RANDOM_SCANS=${RANDOM_SCANS:-no}
 DETECT_VERSION=${DETECT_VERSION}
@@ -255,9 +256,11 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.timeout=${API_TIMEOUT}"
       #DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=CONTAINER_SCAN"
-      #DETECT_OPTIONS="${DETECT_OPTIONS} --detect.cleanup=false --blackduck.offline.mode=true"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.cleanup=false --detect.diagnostic=true" #--blackduck.offline.mode=true"
       #DETECT_OPTIONS="${DETECT_OPTIONS} --detect.container.scan.file.path=${project_name}/${cl_name}"
 	DETECT_OPTIONS="${DETECT_OPTIONS} --detect.container.scan.file.path=${project_images[@]}"
+      #DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.com.synopsys.integration=TRACE"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.detect=TRACE"
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
