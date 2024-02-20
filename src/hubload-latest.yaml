@@ -3,8 +3,8 @@ services:
   hub-load:
     image: hubload-latest
     environment:
-      - BD_HUB_URL=https://us03-eng-pappu01.nprd.sig.synopsys.com
-      - API_TOKEN=ZmQ2ZWVmMjQtZWUyMy00ZmYzLWE3OTEtZWNjMjNjYjNlMzQ3OjA0YjMzZjA5LWRmMGQtNDM3ZC05NmRjLWUyODU5MTc0YTQyMA==
+      - BD_HUB_URL=dummy
+      - API_TOKEN=dummy
       - SYNCHRONOUS_SCANS=no
       - MAX_SCANS=5
       - MAX_CODELOCATIONS=1
