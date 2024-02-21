@@ -2,7 +2,7 @@
   
 #
 # Sample script for running container scan of hub-load
-# sh hub-load_container.sh MAX_SCANS="3" TEST_DURATION="3" IMAGE_PATH="http://sig-os192113060.internal.synopsys.com:8082/artifactory/prasad-sca-test-data/container.zip" BD_HUB_URL="dummy_url" API_TOKEN="dummytoken"
+# sh hub-load_container.sh MAX_SCANS="3" TEST_DURATION="3" IMAGE_PATH="http://sig-os192113060/prasad-sca-test-data/container.zip" BD_HUB_URL="dummy_url" API_TOKEN="dummytoken"
 #
 
 
