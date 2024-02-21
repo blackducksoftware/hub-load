@@ -39,8 +39,8 @@ cd $WORKDIR
 # Defaults
 #
 MAX_SCANS=${MAX_SCANS:-1}
-BD_HUB_URL=${BD_HUB_URL:-https://us03-eng-pappu01.nprd.sig.synopsys.com}
-API_TOKEN=${API_TOKEN:-ZmQ2ZWVmMjQtZWUyMy00ZmYzLWE3OTEtZWNjMjNjYjNlMzQ3OjA0YjMzZjA5LWRmMGQtNDM3ZC05NmRjLWUyODU5MTc0YTQyMA==}
+BD_HUB_URL=${BD_HUB_URL:-https://dummy}
+API_TOKEN=${API_TOKEN:-dummy}
 API_TIMEOUT=${API_TIMEOUT:-300}
 MAX_SCANS=${MAX_SCANS:-3}
 MAX_CODELOCATIONS=${MAX_CODELOCATIONS:-1}
@@ -269,7 +269,7 @@ do
       fi
       detect_log=/tmp/detect_$$.log
       echo "Final Detect Options: $DETECT_OPTIONS"
-	export DETECT_SOURCE=https://artifactory.internal.synopsys.com/artifactory/bds-integrations-test/com/synopsys/integration/synopsys-detect/9.3.0-SIGQA2/synopsys-detect-9.3.0-SIGQA2.jar
+	#export DETECT_SOURCE=https://artifactory.internal.synopsys.com/artifactory/bds-integrations-test/com/synopsys/integration/synopsys-detect/9.3.0-SIGQA2/synopsys-detect-9.3.0-SIGQA2.jar
       bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect9.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
       echo "Elapsed time for scan was ${elapsed_time} seconds"
