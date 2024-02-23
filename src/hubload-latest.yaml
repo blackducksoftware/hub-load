@@ -10,7 +10,7 @@ services:
       - MAX_CODELOCATIONS=1
       - MAX_VERSIONS=1
       - RANDOM_SCANS=no
-      - FIXED_COMPONENTS=5
+      - FIXED_COMPONENTS=1
       - TEST_DURATION=1
     #command: /home/hub_load/submit_scans.sh
     command: /home/hub_load/submit_scans_fixed.sh
@@ -19,6 +19,6 @@ services:
         condition: on-failure
         max_attempts: 0
       mode: replicated
-      replicas: 20
+      replicas: 3
       update_config:
         delay: 4s
