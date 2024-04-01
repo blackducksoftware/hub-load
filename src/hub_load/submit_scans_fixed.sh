@@ -255,10 +255,10 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --blackduck.trust.cert=true"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.timeout=${API_TIMEOUT}"
       #DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=CONTAINER_SCAN"
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=THREAT_INTEL"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.cleanup=false --detect.diagnostic=true" #--blackduck.offline.mode=true"
       #DETECT_OPTIONS="${DETECT_OPTIONS} --detect.container.scan.file.path=${project_name}/${cl_name}"
-	DETECT_OPTIONS="${DETECT_OPTIONS} --detect.container.scan.file.path=${project_images[@]}"
+	DETECT_OPTIONS="${DETECT_OPTIONS} --detect.threatintel.scan.file.path=${project_images[@]}"
       #DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.com.synopsys.integration=TRACE"
       DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.detect=TRACE"
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
@@ -269,7 +269,7 @@ do
       fi
       detect_log=/tmp/detect_$$.log
       echo "Final Detect Options: $DETECT_OPTIONS"
-	#export DETECT_SOURCE=https://artifactory.internal.synopsys.com/artifactory/bds-integrations-test/com/synopsys/integration/synopsys-detect/9.3.0-SIGQA2/synopsys-detect-9.3.0-SIGQA2.jar
+	export DETECT_SOURCE=https://artifactory.internal.synopsys.com/artifactory/bds-integrations-test/com/synopsys/integration/synopsys-detect/9.6.0-SIGQA2-rl-scan/synopsys-detect-9.6.0-SIGQA2-rl-scan.jar
       bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect9.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
       echo "Elapsed time for scan was ${elapsed_time} seconds"
