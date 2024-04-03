@@ -152,7 +152,7 @@ fi
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-images=($(find . -name \*.tar -print | sort -V))
+images=($(find . \( -iname \*.tar -o -iname \*.exe -o -iname \*.dmg \) -print | sort -V))
 IFS=$OIFS;
 
 echo ${#images[@]} jar files located
