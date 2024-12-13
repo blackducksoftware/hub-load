@@ -21,7 +21,7 @@ function get_elapsed_time() {
   seconds=$(echo $duration_line | awk '{print $11}' | sed -e "s/s//")
   # echo "Seconds: $seconds"  1>&2
 
-  total_elapsed_seconds=$(( $hours * 3600 + $minutes * 60 + $seconds))
+  total_elapsed_seconds=$((10#$hours * 3600 + 10#$minutes * 60 + 10#$seconds))
   # echo "total elapsed time (seconds): $total_elapsed_seconds" 1>&2
 
   # the total elapsed time is written to stdout so you can use this as input to something else
@@ -54,6 +54,16 @@ DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
 
+
+if [ -z "$TEST_DURATION" ]; then
+  echo "Scans will be submitted as fast it can, continuing."
+  exit 1
+else
+#target rate / Scan
+TARGET_DURATION=$(((TEST_DURATION * 3600) / MAX_SCANS))
+echo "Scans will be submitted at the rate of 1 scan per ${TARGET_DURATION} seconds"
+fi
+
 if [ -z "${DETECT_VERSION}" ]
 then
   echo "Default Detect Version"
@@ -69,7 +79,8 @@ fi
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT MAX_SCANS MAX_CODELOCATIONS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL RANDOM_SCANS FIXED_COMPONENTS"
+INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL"
+
 
 if [ "$INTERACTIVE" = "yes" ]
 then
@@ -139,7 +150,12 @@ fi
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-jars=($(find . -name \*.jar -print | sort -V))
+if [ "${SNIPPETS}" == "yes" ]
+then
+	jars=($(find . -name \*.tar.gz -print))
+else
+	jars=($(find . -name \*.jar -print))
+fi
 IFS=$OIFS;
 
 echo ${#jars[@]} jar files located
@@ -244,23 +260,34 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=SIGNATURE_SCAN"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
+      if  [ "${SNIPPETS}" == "yes" ]; then
+      	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING"
+      	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.upload.source.mode=true"
+      fi
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
       if [ "${FAIL_ON_SEVERITIES}" != "NONE" ]; then
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
       fi
+
       detect_log=/tmp/detect_$$.log
       echo "Final Detect Options: $DETECT_OPTIONS"
-      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect9.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
+
       echo "Elapsed time for scan was ${elapsed_time} seconds"
+      WAIT_TIME=$(( TARGET_DURATION  - elapsed_time ))
       rm $detect_log
+
       ((scans++))
     done
     echo "looping"
   done
   echo "Removing ${project_name}"
   rm -rf $project_name
+
+  echo "Sleeping for ${WAIT_TIME} seconds based on the ${TARGET_DURATION} seconds per scan"
+  sleep "$WAIT_TIME"
   # pos=$((pos + num_jars + 1))
 done
