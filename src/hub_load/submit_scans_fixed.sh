@@ -59,6 +59,9 @@ DEBUG=${DEBUG:-no}
 #max scans * test duration is decided based on the number of scans a container has to be submit
 MAX_SCANS=$((MAX_SCANS * TEST_DURATION))
 
+#max scans * test duration is decided based on the number of scans a container has to be submit
+MAX_SCANS=$((MAX_SCANS * TEST_DURATION))
+
 
 if [ -z "$TEST_DURATION" ]; then
   echo "Scans will be submitted as fast it can, continuing."
