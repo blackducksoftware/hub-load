@@ -55,13 +55,16 @@ FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
 STRING_SEARCH=${STRING_SEARCH:-no}
 
+#max scans * test duration is decided based on the number of scans a container has to be submit
+MAX_SCANS=$((MAX_SCANS * TEST_DURATION))
+
 
 if [ -z "$TEST_DURATION" ]; then
   echo "Scans will be submitted as fast it can, continuing."
   exit 1
 else
 #target rate / Scan
-TARGET_DURATION=$(((TEST_DURATION * 3600) / MAX_SCANS))
+TARGET_DURATION=$(((TEST_DURATION * 3600) / (MAX_SCANS)))
 echo "Scans will be submitted at the rate of 1 scan per ${TARGET_DURATION} seconds"
 fi
 
