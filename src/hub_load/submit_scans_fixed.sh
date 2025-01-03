@@ -179,6 +179,7 @@ cl_pos=0
 #num_jars=100
 end=10
 # while [ $pos -lt ${#jars[@]} ]
+SLEEP_TIME=$((10 + $(date +%s%N) % 291)); echo "Sleeping for $SLEEP_TIME seconds"; sleep $SLEEP_TIME; echo "Woke up after sleeping";
 
 while (( scans < MAX_SCANS ))
 do
