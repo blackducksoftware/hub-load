@@ -54,6 +54,7 @@ DETECT_VERSION=${DETECT_VERSION}
 FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
 STRING_SEARCH=${STRING_SEARCH:-no}
+DEBUG=${DEBUG:-no}
 
 #max scans * test duration is decided based on the number of scans a container has to be submit
 MAX_SCANS=$((MAX_SCANS * TEST_DURATION))
@@ -83,7 +84,7 @@ fi
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL"
+INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL DEBUG"
 
 
 if [ "$INTERACTIVE" = "yes" ]
@@ -95,7 +96,7 @@ then
 fi
 
 echo 
-echo "Submitting with the following parameters:"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Submitting with the following parameters:"
 echo  
 for i in $INT_PARAMS
 do
@@ -110,7 +111,7 @@ then
    if [[ ! "$continue" = "Y" ]] ; then exit 1 ; fi
 fi
 
-echo Starting ...
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting ..."
 
 if [ -z "$BD_HUB_URL" ]
 then
@@ -162,7 +163,7 @@ else
 fi
 IFS=$OIFS;
 
-echo ${#jars[@]} jar files located
+echo "$(date '+%Y-%m-%d %H:%M:%S') - ${#jars[@]} jar files located"
 echo "...................................."
 
 
@@ -253,10 +254,11 @@ do
       # set +e
 
       mkdir -p $project_name/$cl_name
-      echo "copy"
-      ln -f ${project_jars[@]} $project_name/$cl_name
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - copy rsync started"
+      rsync -a ${project_jars[@]} $project_name/$cl_name
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - copy rsync completed"
 
-      echo "scanning"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - scanning"
       DETECT_OPTIONS="--blackduck.url=${BD_HUB_URL} --blackduck.api.token=${API_TOKEN}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.project.name=${project_name} --detect.project.version.name=${v}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.code.location.name=${cl_name}"
@@ -267,37 +269,40 @@ do
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
 
       if  [ "${STRING_SEARCH}" == "yes" ]; then
-            	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.license.search=true"
-            	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.copyright.search=true"
-            fi
+          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.license.search=true"
+          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.copyright.search=true"
+      fi
       if  [ "${SNIPPETS}" == "yes" ]; then
-      	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING"
-      	      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.upload.source.mode=true"
+          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING"
+          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.upload.source.mode=true"
+      fi
+      if  [ "${DEBUG}" == "yes" ]; then
+          DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.detect=TRACE"
       fi
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
-        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
+          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
       if [ "${FAIL_ON_SEVERITIES}" != "NONE" ]; then
-        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
+          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
       fi
 
       detect_log=/tmp/detect_$$.log
-      echo "Final Detect Options: $DETECT_OPTIONS"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - Final Detect Options: $DETECT_OPTIONS"
       bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect9.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
 
-      echo "Elapsed time for scan was ${elapsed_time} seconds"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - Elapsed time for scan was ${elapsed_time} seconds"
       WAIT_TIME=$(( TARGET_DURATION  - elapsed_time ))
       rm $detect_log
 
       ((scans++))
     done
-    echo "looping"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - looping"
   done
-  echo "Removing ${project_name}"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - Removing ${project_name}"
   rm -rf $project_name
 
-  echo "Sleeping for ${WAIT_TIME} seconds based on the ${TARGET_DURATION} seconds per scan"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - Sleeping for ${WAIT_TIME} seconds based on the ${TARGET_DURATION} seconds per scan"
   sleep "$WAIT_TIME"
   # pos=$((pos + num_jars + 1))
 done

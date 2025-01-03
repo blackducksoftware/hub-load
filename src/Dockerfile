@@ -7,10 +7,9 @@ FROM ubuntu:focal
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl wget unzip
-
-# need java8 to run detect
-RUN apt-get install openjdk-8-jre-headless -y
+    apt-get install -y curl wget unzip rsync openjdk-17-jre-headless && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 ADD hub_load /home/hub_load
 
