@@ -288,7 +288,7 @@ do
 
       detect_log=/tmp/detect_$$.log
       echo "$(date '+%Y-%m-%d %H:%M:%S') - Final Detect Options: $DETECT_OPTIONS"
-      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.synopsys.com/detect9.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+      bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.blackduck.com/detect10.sh) ${DETECT_OPTIONS} | tee ${detect_log}
       elapsed_time=$(get_elapsed_time $detect_log)
 
       echo "$(date '+%Y-%m-%d %H:%M:%S') - Elapsed time for scan was ${elapsed_time} seconds"
