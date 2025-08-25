@@ -1,7 +1,32 @@
 #!/bin/bash
 #
 #  Generates and submits test loads for HUB
+#  Supports SIGNATURE_SCAN, BINARY_SCAN, and CONTAINER_SCAN
 #
+
+function show_usage() {
+  echo "Usage: $0 [options]"
+  echo ""
+  echo "Environment Variables:"
+  echo "  SCAN_TYPE=<type>           Scan type: SIGNATURE_SCAN, BINARY_SCAN, or CONTAINER_SCAN (default: SIGNATURE_SCAN)"
+  echo "  BD_HUB_URL=<url>           Black Duck Hub URL"
+  echo "  API_TOKEN=<token>          API token for authentication"
+  echo "  MAX_SCANS=<number>         Maximum number of scans to submit (default: 3)"
+  echo "  SYNCHRONOUS_SCANS=<yes/no> Wait for scan results (default: yes)"
+  echo "  DEBUG=<yes/no>             Enable debug logging (default: no)"
+  echo ""
+  echo "Examples:"
+  echo "  SCAN_TYPE=SIGNATURE_SCAN $0"
+  echo "  SCAN_TYPE=BINARY_SCAN BD_HUB_URL=https://hub.example.com API_TOKEN=abc123 $0"
+  echo "  SCAN_TYPE=CONTAINER_SCAN MAX_SCANS=5 $0"
+  echo ""
+  exit 1
+}
+
+# Check for help flag
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_usage
+fi
 
 function readvar() {
    echo -n "Enter value for $1 [${!1}] "
@@ -55,6 +80,11 @@ FAIL_ON_SEVERITIES=${FAIL_ON_SEVERITIES}
 INSECURE_CURL=${INSECURE_CURL:-no}
 STRING_SEARCH=${STRING_SEARCH:-no}
 DEBUG=${DEBUG:-no}
+SCAN_TYPE=${SCAN_TYPE:-SIGNATURE_SCAN}
+SNIPPETS=${SNIPPETS:-no}
+WAIT_TIME=${WAIT_TIME:-30}
+TEST_DURATION=${TEST_DURATION:-1}
+TARGET_DURATION=0
 
 #max scans * test duration is decided based on the number of scans a container has to be submit
 MAX_SCANS=$((MAX_SCANS * TEST_DURATION))
@@ -84,7 +114,7 @@ fi
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL DEBUG"
+INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL DEBUG SCAN_TYPE"
 
 
 if [ "$INTERACTIVE" = "yes" ]
@@ -150,20 +180,74 @@ if [ "${INSECURE_CURL}" == "yes" ]; then
 	export DETECT_CURL_OPTS=--insecure
 fi
 
+# Validate scan type
+if [[ ! "$SCAN_TYPE" =~ ^(SIGNATURE_SCAN|BINARY_SCAN|CONTAINER_SCAN)$ ]]; then
+  echo "Error: SCAN_TYPE must be one of: SIGNATURE_SCAN, BINARY_SCAN, CONTAINER_SCAN"
+  echo "Current value: $SCAN_TYPE"
+  exit 1
+fi
+
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Using scan type: $SCAN_TYPE"
+
 #
-#  Generate an array of available JAR files
+#  Generate an array of available files based on scan type
 #
 echo ".............................."
 OIFS=$IFS; IFS=$'\n';
-if [ "${SNIPPETS}" == "yes" ]
-then
-	jars=($(find . -name \*.tar.gz -print))
-else
-	jars=($(find . -name \*.jar -print))
+
+# Set search base directory - support running from anywhere
+PROJECT_ROOT="$WORKDIR/../.."
+if [ ! -d "$PROJECT_ROOT" ]; then
+  PROJECT_ROOT="."
 fi
+
+if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
+  if [ "${SNIPPETS}" == "yes" ]; then
+    # Search in multiple possible locations for snippet files
+    files=($(find "$PROJECT_ROOT" -name \*.tar.gz -print 2>/dev/null))
+    file_type="tar.gz files for snippet scanning"
+  else
+    # Search in multiple possible locations for jar files
+    files=($(find "$PROJECT_ROOT" -name \*.jar -print 2>/dev/null))
+    file_type="jar files for signature scanning"
+  fi
+elif [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
+  # Search for binary files in multiple locations, prioritizing the binaries directory
+  files=($(find "$PROJECT_ROOT" \( -name "*.exe" -o -name "*.tar.gz"  -o -name "*.tgz" -o -name "*.dmg" -o -name "*.iso" -o -name "*.ISO" -o -name "*.msi" -o -name "*.rpm" \) -print 2>/dev/null | sort -V))
+  fileNames=($(find "$PROJECT_ROOT" -type f \( -name "*.exe" -o -name "*.tar.gz" -o -name "*.tgz" -o -name "*.dmg" -o -name "*.iso" -o -name "*.ISO" -o -name "*.msi" -o -name "*.rpm" \) -print 2>/dev/null | sort -V | xargs -r basename -a))
+  file_type="binary files"
+elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+  # Search for container tar files
+  files=($(find "$PROJECT_ROOT" -name \*.tar -print 2>/dev/null | sort -V))
+  file_type="container image files"
+fi
+
 IFS=$OIFS;
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - ${#jars[@]} jar files located"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - ${#files[@]} $file_type located"
+
+# Check if any files were found
+if [ ${#files[@]} -eq 0 ]; then
+  echo "ERROR: No $file_type found in $PROJECT_ROOT"
+  echo "For $SCAN_TYPE, please ensure test files are available:"
+  case "$SCAN_TYPE" in
+    "SIGNATURE_SCAN")
+      if [ "${SNIPPETS}" == "yes" ]; then
+        echo "  - Place *.tar.gz files in the project directory for snippet scanning"
+      else
+        echo "  - Place *.jar files in the project directory for signature scanning"
+      fi
+      ;;
+    "BINARY_SCAN")
+      echo "  - Place binary files (*.exe, *.tar.gz, *.tar, *.tgz, *.dmg, *.iso, *.msi, *.rpm) in the project directory"
+      ;;
+    "CONTAINER_SCAN")
+      echo "  - Place container *.tar files in the project directory"
+      ;;
+  esac
+  exit 1
+fi
+
 echo "...................................."
 
 
@@ -186,52 +270,67 @@ while (( scans < MAX_SCANS ))
 do
   echo "do"
   if [ "${repeating}" == "no" ] && [ "${RANDOM_SCANS}" == "yes" ]; then
-    start_pos=$(( ( RANDOM % ${#jars[@]} ) ))
-    num_jars=$(( ( RANDOM % $MAX_COMPONENTS ) + 1 ))
-    # use maximum of num_jars OR MIN_COMPONENTS to set lower threshold for number of components
-    num_jars=$(( num_jars > MIN_COMPONENTS ? num_jars : MIN_COMPONENTS ))
-    end=$((start_pos + num_jars))
-    if [ $end -gt ${#jars[@]} ]
-    then
-      num_jars=$((${#jars[@]} - start_pos))
+    start_pos=$(( ( RANDOM % ${#files[@]} ) ))
+    if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
+      num_files=$(( ( RANDOM % $MAX_COMPONENTS ) + 1 ))
+      # use maximum of num_files OR MIN_COMPONENTS to set lower threshold for number of components
+      num_files=$(( num_files > MIN_COMPONENTS ? num_files : MIN_COMPONENTS ))
+    else
+      num_files=1  # Binary and container scans typically handle one file at a time
     fi
-    project_jars=("${jars[@]:$pos:$num_jars}")
+    end=$((start_pos + num_files))
+    if [ $end -gt ${#files[@]} ]
+    then
+      num_files=$((${#files[@]} - start_pos))
+    fi
+    project_files=("${files[@]:$pos:$num_files}")
     echo "start_pos: $start_pos"
-    echo "num_jars: $num_jars"
+    echo "num_files: $num_files"
     echo "end: $end"
-    echo "jars in project_jars: ${#project_jars[@]}"
-    echo "project_jars: ${project_jars[@]}"
+    echo "files in project_files: ${#project_files[@]}"
+    echo "project_files: ${project_files[@]}"
   # checking for Random Scans Flag. If the flag is set to No, components chosen to submit scans will be repeatable between releases.
   elif [  "${RANDOM_SCANS}" == "no"  ]; then
     start_pos=$((start_pos + 1))
     cl_pos=$((cl_pos + 1))
 
-# assigning the number of components to be submitted per scan based on the total number of jar files available and number of components chosen by the tester.
-    num_jars=$(( FIXED_COMPONENTS > ${#jars[@]} ? ${#jars[@]} : FIXED_COMPONENTS ))
-    end=$((start_pos + num_jars))
+# assigning the number of components to be submitted per scan based on the total number of files available and number of components chosen by the tester.
+    if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
+      num_files=$(( FIXED_COMPONENTS > ${#files[@]} ? ${#files[@]} : FIXED_COMPONENTS ))
+    else
+      num_files=1  # Binary and container scans typically handle one file at a time
+    fi
+    end=$((start_pos + num_files))
 
-#Since the jar files files are submited by increasing the value of start and end index, condition is added to check
+#Since the files are submitted by increasing the value of start and end index, condition is added to check
 # whether the end index value reached the total number of files and if reached resetting it back to 0
-    if [ $end -gt ${#jars[@]} ]
-    #if [ $end -gt 744 ]
+    if [ $end -gt ${#files[@]} ]
     then
       start_pos=0
-      end=$num_jars
+      end=$num_files
     fi
-    #start and end index for choosing the jars are assigned.
-    project_jars=("${jars[@]:$start_pos:$num_jars}")
+    #start and end index for choosing the files are assigned.
+    project_files=("${files[@]:$start_pos:$num_files}")
     echo "FIXED_COMPONENTS: $FIXED_COMPONENTS"
     echo "start_pos: $start_pos"
-    echo "num_jars: $num_jars"
+    echo "num_files: $num_files"
     echo "end: $end"
-    echo "jars in project_jars: ${#project_jars[@]}"
-    echo "project_jars: ${project_jars[@]}"
+    echo "files in project_files: ${#project_files[@]}"
+    if [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
+      echo "project_files: ${fileNames[@]}"
+    else
+      echo "project_files: ${project_files[@]}"
+    fi
 
   fi
 
   repeating=${REPEAT_SCAN}
 
-  project_name="$PROJECT-$(($RANDOM))-on-${TIMESTAMP}"
+  if [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+    project_name="$PROJECT-$(($RANDOM))-on-${TIMESTAMP}-$pos"
+  else
+    project_name="$PROJECT-$(($RANDOM))-on-${TIMESTAMP}"
+  fi
   echo "project_name: ${project_name}"
   mkdir $project_name
 
@@ -248,42 +347,70 @@ do
       RANDOM=`date "+%s"`
       container_id=`cat /etc/hostname`
       echo "Container ID: $container_id"
-      cl_name="$container_id-cl-${cl_pos}"
+      
+      if [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
+        cl_name="$container_id-binary-cl-${cl_pos}"
+      elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+        cl_name="$container_id-container-cl-${cl_pos}"
+      else
+        cl_name="$container_id-cl-${cl_pos}"
+      fi
+      
       echo "code location name: $cl_name"
-      # echo "1"
-      # set +e
 
       mkdir -p $project_name/$cl_name
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - copy rsync started"
-      rsync -a ${project_jars[@]} $project_name/$cl_name
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - copy rsync completed"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - copy started"
+      
+      if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
+        rsync -a ${project_files[@]} $project_name/$cl_name
+      elif [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
+        ln -f ${project_files[@]} $project_name/$cl_name
+      elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+        ln -f ${project_files[@]} $project_name/$cl_name
+      fi
+      
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - copy completed"
 
       echo "$(date '+%Y-%m-%d %H:%M:%S') - scanning"
       DETECT_OPTIONS="--blackduck.url=${BD_HUB_URL} --blackduck.api.token=${API_TOKEN}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.project.name=${project_name} --detect.project.version.name=${v}"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.code.location.name=${cl_name}"
       DETECT_OPTIONS="${DETECT_OPTIONS} --blackduck.trust.cert=true"
       DETECT_OPTIONS="${DETECT_OPTIONS} --detect.timeout=${API_TIMEOUT}"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=SIGNATURE_SCAN"
-      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
-
-      if  [ "${STRING_SEARCH}" == "yes" ]; then
+      DETECT_OPTIONS="${DETECT_OPTIONS} --detect.tools=${SCAN_TYPE}"
+      
+      if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.code.location.name=${cl_name}"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.source.path=${project_name}/${cl_name}"
+        
+        if [ "${STRING_SEARCH}" == "yes" ]; then
           DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.license.search=true"
           DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.copyright.search=true"
-      fi
-      if  [ "${SNIPPETS}" == "yes" ]; then
+        fi
+        if [ "${SNIPPETS}" == "yes" ]; then
           DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING"
           DETECT_OPTIONS="${DETECT_OPTIONS} --detect.blackduck.signature.scanner.upload.source.mode=true"
+        fi
+        
+      elif [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.code.location.name=${cl_name}"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.parallel.processors=-1"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${fileNames[start_pos]}"
+        
+      elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.cleanup=false --detect.diagnostic=true"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.container.scan.file.path=${project_files[@]}"
+        #DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.detect=TRACE"
       fi
-      if  [ "${DEBUG}" == "yes" ]; then
-          DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.detect=TRACE"
+
+      if [ "${DEBUG}" == "yes" ]; then
+        DETECT_OPTIONS="${DETECT_OPTIONS} --logging.level.detect=TRACE"
       fi
       if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
-          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.wait.for.results=true"
       fi
       if [ "${FAIL_ON_SEVERITIES}" != "NONE" ]; then
-          DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
+        DETECT_OPTIONS="${DETECT_OPTIONS} --detect.policy.check.fail.on.severities=${FAIL_ON_SEVERITIES}"
       fi
 
       detect_log=/tmp/detect_$$.log
@@ -304,5 +431,7 @@ do
 
   echo "$(date '+%Y-%m-%d %H:%M:%S') - Sleeping for ${WAIT_TIME} seconds based on the ${TARGET_DURATION} seconds per scan"
   sleep "$WAIT_TIME"
-  # pos=$((pos + num_jars + 1))
+  if [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+    pos=$((pos + num_files + 1))
+  fi
 done
