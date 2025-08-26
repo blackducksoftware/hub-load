@@ -6,7 +6,7 @@ services:
       # Scan type: SIGNATURE_SCAN, BINARY_SCAN, or CONTAINER_SCAN
       - SCAN_TYPE=SIGNATURE_SCAN
       
-      # Black Duck configuration
+      # Black Duck configurations
       - BD_HUB_URL=https://dummy/
       - API_TOKEN=dummy==
       - API_TIMEOUT=300
