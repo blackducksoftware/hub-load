@@ -187,9 +187,9 @@ USE_MEMORY_MAPPING=${USE_MEMORY_MAPPING:-no}
 USE_GCS=${USE_GCS:-no}
 GCS_BUCKET=${GCS_BUCKET:-performance_test_bdios}
 GCS_PREFIX=${GCS_PREFIX:-SCASS/SCA_NON_BDIOS_BINARY_SM_MEDIUM/}
-# Force LOCAL_TEST_DATA_DIR to use the correct path for local testing
+# Set LOCAL_TEST_DATA_DIR, respecting environment variable if set
 if [ "${USE_GCS}" != "yes" ]; then
-  LOCAL_TEST_DATA_DIR="../../../test-data"
+  LOCAL_TEST_DATA_DIR=${LOCAL_TEST_DATA_DIR:-"../../../test-data"}
 else
   LOCAL_TEST_DATA_DIR=${LOCAL_TEST_DATA_DIR:-"${WORKDIR}/../../../test-data"}
 fi
