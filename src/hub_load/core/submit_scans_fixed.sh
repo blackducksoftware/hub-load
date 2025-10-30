@@ -33,6 +33,52 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
   show_usage
 fi
 
+# Java detection and setup for Ubuntu/Linux environments
+check_java() {
+  if ! command -v java >/dev/null 2>&1; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚠️  Java not found in PATH, attempting to locate and configure Java..."
+    
+    # Common Java installation paths for Ubuntu/Linux
+    local java_paths=(
+      "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"
+      "/usr/lib/jvm/java-8-openjdk-amd64/bin/java"
+      "/usr/lib/jvm/default-java/bin/java"
+      "/usr/bin/java"
+      "/opt/java/openjdk/bin/java"
+      "/usr/lib/jvm/java-17-openjdk-amd64/bin/java"
+      "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"
+    )
+    
+    local java_found=""
+    for java_path in "${java_paths[@]}"; do
+      if [ -x "$java_path" ]; then
+        java_found="$java_path"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Found Java at: $java_path"
+        break
+      fi
+    done
+    
+    if [ -n "$java_found" ]; then
+      # Add Java directory to PATH
+      export PATH="$(dirname "$java_found"):$PATH"
+      export JAVA_HOME="$(dirname "$(dirname "$java_found")")"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Added to PATH: $(dirname "$java_found")"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Set JAVA_HOME: $JAVA_HOME"
+    else
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ Java not found. Please install Java:"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   Ubuntu/Debian: sudo apt-get update && sudo apt-get install openjdk-11-jdk"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   RHEL/CentOS: sudo yum install java-11-openjdk-devel"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - Exiting..."
+      exit 1
+    fi
+  else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Java found: $(java -version 2>&1 | head -n 1)"
+  fi
+}
+
+# Run Java check
+check_java
+
 function readvar() {
    echo -n "Enter value for $1 [${!1}] "
    read temp
@@ -51,7 +97,17 @@ function get_elapsed_time() {
   seconds=$(echo $duration_line | awk '{print $11}' | sed -e "s/s//")
   # echo "Seconds: $seconds"  1>&2
 
-  total_elapsed_seconds=$((10#$hours * 3600 + 10#$minutes * 60 + 10#$seconds))
+  # Clean and validate numeric values to avoid parsing errors
+  hours_clean=$(echo "$hours" | sed 's/[^0-9]//g')
+  minutes_clean=$(echo "$minutes" | sed 's/[^0-9]//g')
+  seconds_clean=$(echo "$seconds" | sed 's/[^0-9]//g')
+  
+  # Set defaults if empty
+  hours_clean=${hours_clean:-0}
+  minutes_clean=${minutes_clean:-0}
+  seconds_clean=${seconds_clean:-0}
+  
+  total_elapsed_seconds=$((hours_clean * 3600 + minutes_clean * 60 + seconds_clean))
   # echo "total elapsed time (seconds): $total_elapsed_seconds" 1>&2
 
   # the total elapsed time is written to stdout so you can use this as input to something else
