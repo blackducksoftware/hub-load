@@ -1,0 +1,242 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hub-load-scan-job
+  namespace: hub-load
+  labels:
+    app: hub-load-scan
+    scan-type: binary
+spec:
+  # Job configuration
+  parallelism: 1
+  completions: 1
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Clean up job after 1 hour
+  
+  template:
+    metadata:
+      labels:
+        app: hub-load-scan
+        scan-type: binary
+    spec:
+      # Service account for GCS access
+      serviceAccountName: hub-load-sa
+      
+      # Security context for FUSE mounting
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+      
+      containers:
+      - name: hub-load-scanner
+        image: hub-load-test:latest
+        imagePullPolicy: Always
+        
+        # Required for FUSE mounting
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+        
+        # Environment variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: hub-load-config
+        
+        # Override specific configuration for this job
+        env:
+        - name: BD_HUB_URL
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: BD_HUB_URL
+        - name: API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: API_TOKEN
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/tmp/gcs-credentials/key.json"
+        - name: SCAN_TYPE
+          value: "BINARY_SCAN"
+        - name: MAX_SCANS
+          value: "50"
+        - name: DEBUG
+          value: "yes"
+        - name: USE_MEMORY_MAPPING
+          value: "yes"
+        - name: USE_GCS
+          value: "yes"
+        
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "16Gi"
+            cpu: "8000m"
+        
+        # Volume mounts
+        volumeMounts:
+        - name: gcs-credentials
+          mountPath: /tmp/gcs-credentials
+          readOnly: true
+        - name: gcs-cache
+          mountPath: /tmp/gcs-cache
+        - name: results
+          mountPath: /home/hub_load/results
+        - name: dev-fuse
+          mountPath: /dev/fuse
+        
+        # Command to run the actual scan
+        command: ["/home/hub_load/docker-entrypoint.sh"]
+        args: ["./submit_scans_fixed.sh"]
+      
+      # Volumes
+      volumes:
+      - name: gcs-credentials
+        secret:
+          secretName: gcs-service-account
+      - name: gcs-cache
+        persistentVolumeClaim:
+          claimName: gcs-cache-pvc
+      - name: results
+        persistentVolumeClaim:
+          claimName: hub-load-results-pvc
+      - name: dev-fuse
+        hostPath:
+          path: /dev/fuse
+          type: CharDevice
+      
+      # Node selector for nodes with FUSE support
+      nodeSelector:
+        kubernetes.io/os: linux
+      
+      # Tolerations for dedicated nodes (optional)
+      tolerations:
+      - key: "hub-load"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      
+      # Restart policy for jobs
+      restartPolicy: Never
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hub-load-scheduled-scan
+  namespace: hub-load
+  labels:
+    app: hub-load-cronjob
+spec:
+  # Run every day at 2 AM UTC
+  schedule: "0 2 * * *"
+  
+  # Job template
+  jobTemplate:
+    metadata:
+      labels:
+        app: hub-load-cronjob
+    spec:
+      parallelism: 1
+      completions: 1
+      backoffLimit: 3
+      ttlSecondsAfterFinished: 86400  # Clean up after 24 hours
+      
+      template:
+        metadata:
+          labels:
+            app: hub-load-cronjob
+        spec:
+          serviceAccountName: hub-load-sa
+          
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            fsGroup: 0
+          
+          containers:
+          - name: hub-load-scheduler
+            image: hub-load-test:latest
+            imagePullPolicy: Always
+            
+            securityContext:
+              privileged: true
+              capabilities:
+                add:
+                  - SYS_ADMIN
+            
+            envFrom:
+            - configMapRef:
+                name: hub-load-config
+            
+            env:
+            - name: BD_HUB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hub-load-secrets
+                  key: BD_HUB_URL
+            - name: API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hub-load-secrets
+                  key: API_TOKEN
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/tmp/gcs-credentials/key.json"
+            - name: SCAN_TYPE
+              value: "BINARY_SCAN"
+            - name: MAX_SCANS
+              value: "100"
+            - name: DEBUG
+              value: "no"
+            
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2000m"
+              limits:
+                memory: "16Gi"
+                cpu: "8000m"
+            
+            volumeMounts:
+            - name: gcs-credentials
+              mountPath: /tmp/gcs-credentials
+              readOnly: true
+            - name: gcs-cache
+              mountPath: /tmp/gcs-cache
+            - name: results
+              mountPath: /home/hub_load/results
+            - name: dev-fuse
+              mountPath: /dev/fuse
+            
+            command: ["/home/hub_load/docker-entrypoint.sh"]
+            args: ["./submit_scans_fixed.sh"]
+          
+          volumes:
+          - name: gcs-credentials
+            secret:
+              secretName: gcs-service-account
+          - name: gcs-cache
+            persistentVolumeClaim:
+              claimName: gcs-cache-pvc
+          - name: results
+            persistentVolumeClaim:
+              claimName: hub-load-results-pvc
+          - name: dev-fuse
+            hostPath:
+              path: /dev/fuse
+              type: CharDevice
+          
+          nodeSelector:
+            kubernetes.io/os: linux
+          
+          restartPolicy: Never
+  
+  # Cron job configuration
+  concurrencyPolicy: Forbid  # Don't run concurrent jobs
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3

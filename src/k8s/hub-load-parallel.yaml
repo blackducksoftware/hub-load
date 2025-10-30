@@ -1,0 +1,269 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub-load-parallel-scanner
+  namespace: hub-load
+  labels:
+    app: hub-load-parallel
+    component: scanner
+spec:
+  # Scale based on workload - start with 3 replicas
+  replicas: 3
+  
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  
+  selector:
+    matchLabels:
+      app: hub-load-parallel
+      component: scanner
+  
+  template:
+    metadata:
+      labels:
+        app: hub-load-parallel
+        component: scanner
+      annotations:
+        # Force pod restart on config changes
+        checksum/config: "{{ configmap-checksum }}"
+    spec:
+      serviceAccountName: hub-load-sa
+      
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+      
+      # Anti-affinity to spread pods across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - hub-load-parallel
+              topologyKey: kubernetes.io/hostname
+      
+      containers:
+      - name: hub-load-scanner
+        image: hub-load-test:latest
+        imagePullPolicy: Always
+        
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+        
+        envFrom:
+        - configMapRef:
+            name: hub-load-config
+        
+        env:
+        - name: BD_HUB_URL
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: BD_HUB_URL
+        - name: API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: API_TOKEN
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/tmp/gcs-credentials/key.json"
+        
+        # Parallel scanning configuration
+        - name: SCAN_TYPE
+          value: "BINARY_SCAN"
+        - name: MAX_SCANS
+          value: "34"  # ~100 scans across 3 pods
+        - name: RANDOM_SCANS
+          value: "yes"  # Randomize to avoid conflicts
+        - name: DEBUG
+          value: "no"
+        - name: USE_MEMORY_MAPPING
+          value: "yes"
+        - name: USE_GCS
+          value: "yes"
+        
+        # Pod-specific environment variables
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+            ephemeral-storage: "10Gi"
+          limits:
+            memory: "12Gi"
+            cpu: "6000m"
+            ephemeral-storage: "20Gi"
+        
+        volumeMounts:
+        - name: gcs-credentials
+          mountPath: /tmp/gcs-credentials
+          readOnly: true
+        - name: gcs-cache
+          mountPath: /tmp/gcs-cache
+        - name: results
+          mountPath: /home/hub_load/results
+          # Create pod-specific subdirectory
+          subPath: $(POD_NAME)
+        - name: dev-fuse
+          mountPath: /dev/fuse
+        
+        # Health checks
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "ps aux | grep -v grep | grep -q submit_scans_fixed.sh || python3 /home/hub_load/mmap_file_handler.py --help > /dev/null"
+          initialDelaySeconds: 60
+          periodSeconds: 120
+          timeoutSeconds: 30
+          failureThreshold: 3
+        
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "[ -f /home/hub_load/submit_scans_fixed.sh ] && [ -d /tmp/gcs-mount ] || [ '${USE_GCS}' != 'yes' ]"
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 5
+        
+        # Startup probe for initial GCS mounting
+        startupProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "python3 /home/hub_load/mmap_file_handler.py --help > /dev/null"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 10
+        
+        # Long-running scan command
+        command: ["/home/hub_load/docker-entrypoint.sh"]
+        args: ["./submit_scans_fixed.sh"]
+      
+      volumes:
+      - name: gcs-credentials
+        secret:
+          secretName: gcs-service-account
+      - name: gcs-cache
+        persistentVolumeClaim:
+          claimName: gcs-cache-pvc
+      - name: results
+        persistentVolumeClaim:
+          claimName: hub-load-results-pvc
+      - name: dev-fuse
+        hostPath:
+          path: /dev/fuse
+          type: CharDevice
+      
+      nodeSelector:
+        kubernetes.io/os: linux
+        # Optional: Select nodes with high memory/CPU
+        node-type: high-memory  # Adjust based on your cluster
+      
+      tolerations:
+      - key: "hub-load"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      - key: "high-memory"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-load-parallel-service
+  namespace: hub-load
+  labels:
+    app: hub-load-parallel
+spec:
+  selector:
+    app: hub-load-parallel
+    component: scanner
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hub-load-hpa
+  namespace: hub-load
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hub-load-parallel-scanner
+  
+  minReplicas: 3
+  maxReplicas: 15  # Scale up to 15 pods for high throughput
+  
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Max
+    
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 60
+      selectPolicy: Min

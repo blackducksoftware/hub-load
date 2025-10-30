@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: hub-load-monitor
+  namespace: hub-load
+  labels:
+    app: hub-load
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: hub-load-parallel
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-load-grafana-dashboard
+  namespace: hub-load
+  labels:
+    grafana_dashboard: "1"
+data:
+  hub-load-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Hub Load Testing Dashboard",
+        "tags": ["hub-load", "blackduck", "scanning"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "Active Scanning Pods",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "count(up{job=\"hub-load-parallel-service\"})",
+                "legendFormat": "Active Pods"
+              }
+            ]
+          },
+          {
+            "title": "Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "container_memory_usage_bytes{pod=~\"hub-load-parallel-scanner-.*\"}",
+                "legendFormat": "{{pod}}"
+              }
+            ]
+          },
+          {
+            "title": "CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{pod=~\"hub-load-parallel-scanner-.*\"}[5m])",
+                "legendFormat": "{{pod}}"
+              }
+            ]
+          },
+          {
+            "title": "GCS Mount Status",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "up{job=\"hub-load-parallel-service\"}",
+                "legendFormat": "{{pod}}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-load-prometheus-rules
+  namespace: hub-load
+  labels:
+    app: hub-load
+    component: monitoring
+data:
+  hub-load.rules: |
+    groups:
+    - name: hub-load.rules
+      rules:
+      - alert: HubLoadPodDown
+        expr: up{job="hub-load-parallel-service"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hub Load pod is down"
+          description: "Hub Load pod {{ $labels.pod }} has been down for more than 5 minutes."
+      
+      - alert: HubLoadHighMemoryUsage
+        expr: container_memory_usage_bytes{pod=~"hub-load-parallel-scanner-.*"} / container_spec_memory_limit_bytes > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hub Load pod high memory usage"
+          description: "Hub Load pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit."
+      
+      - alert: HubLoadHighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{pod=~"hub-load-parallel-scanner-.*"}[5m]) > 0.8
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Hub Load pod high CPU usage"
+          description: "Hub Load pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} CPU."
+      
+      - alert: HubLoadGCSMountFailed
+        expr: absent(up{job="hub-load-parallel-service"})
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hub Load GCS mount failed"
+          description: "No Hub Load pods are reporting metrics, possibly due to GCS mount failure."
+---
+apiVersion: logging.coreos.com/v1
+kind: ClusterLogForwarder
+metadata:
+  name: hub-load-logs
+  namespace: hub-load
+spec:
+  outputs:
+  - name: hub-load-elasticsearch
+    type: elasticsearch
+    url: http://elasticsearch.logging.svc.cluster.local:9200
+    elasticsearch:
+      index: hub-load-logs
+  
+  pipelines:
+  - name: hub-load-pipeline
+    inputRefs:
+    - application
+    filterRefs:
+    - hub-load-filter
+    outputRefs:
+    - hub-load-elasticsearch
+---
+apiVersion: logging.coreos.com/v1
+kind: ClusterLogFilter
+metadata:
+  name: hub-load-filter
+  namespace: hub-load
+spec:
+  type: json
+  json:
+    javascript: |
+      // Filter and parse Hub Load logs
+      const record = record || {};
+      if (record.kubernetes && 
+          record.kubernetes.namespace_name === 'hub-load' &&
+          record.kubernetes.labels && 
+          record.kubernetes.labels.app === 'hub-load-parallel') {
+        
+        // Parse memory mapping logs
+        if (record.message && record.message.includes('memory mapping')) {
+          record.log_type = 'memory_mapping';
+        }
+        
+        // Parse GCS logs
+        if (record.message && record.message.includes('GCS')) {
+          record.log_type = 'gcs';
+        }
+        
+        // Parse Black Duck scan logs
+        if (record.message && record.message.includes('Detect')) {
+          record.log_type = 'blackduck_scan';
+        }
+        
+        return record;
+      }
+      return null;  // Filter out non-hub-load logs

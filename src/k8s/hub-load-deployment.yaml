@@ -1,0 +1,261 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hub-load
+  labels:
+    name: hub-load
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-load-config
+  namespace: hub-load
+data:
+  # Memory Mapping Configuration
+  USE_MEMORY_MAPPING: "yes"
+  DEBUG: "no"
+  
+  # GCS Configuration
+  USE_GCS: "yes"
+  GCS_BUCKET: "performance_test_bdios"
+  GCS_PREFIX: "SCASS/SCA_NON_BDIOS_BINARY_SM_MEDIUM/"
+  GCS_MOUNT_POINT: "/tmp/gcs-mount"
+  GCS_CACHE_SIZE: "10G"
+  
+  # Black Duck Scan Configuration
+  SCAN_TYPE: "BINARY_SCAN"
+  MAX_SCANS: "100"
+  MAX_CODELOCATIONS: "1"
+  MAX_COMPONENTS: "400"
+  MIN_COMPONENTS: "200"
+  SYNCHRONOUS_SCANS: "yes"
+  REPEAT_SCAN: "no"
+  RANDOM_SCANS: "no"
+  SNIPPETS: "no"
+  WAIT_TIME: "30"
+  TEST_DURATION: "1"
+  API_TIMEOUT: "300"
+  INSECURE_CURL: "no"
+  STRING_SEARCH: "no"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hub-load-secrets
+  namespace: hub-load
+type: Opaque
+data:
+  # Base64 encoded values - replace with your actual values
+  # echo -n 'https://your-hub-url.com' | base64
+  BD_HUB_URL: aHR0cHM6Ly95b3VyLWh1Yi11cmwuY29t
+  # echo -n 'your-api-token' | base64  
+  API_TOKEN: eW91ci1hcGktdG9rZW4=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gcs-service-account
+  namespace: hub-load
+type: Opaque
+data:
+  # Base64 encoded GCS service account key JSON
+  # cat service-account-key.json | base64 -w 0
+  key.json: ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAieW91ci1wcm9qZWN0LWlkIiwKICAicHJpdmF0ZV9rZXlfaWQiOiAieW91ci1rZXktaWQiLAogICJwcml2YXRlX2tleSI6ICJ5b3VyLXByaXZhdGUta2V5IiwKICAiY2xpZW50X2VtYWlsIjogInlvdXItc2VydmljZS1hY2NvdW50QHlvdXItcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsCiAgImNsaWVudF9pZCI6ICJ5b3VyLWNsaWVudC1pZCIsCiAgImF1dGhfdXJpIjogImh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbS9vL29hdXRoMi9hdXRoIiwKICAidG9rZW5fdXJpIjogImh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwKICAiYXV0aF9wcm92aWRlcl94NTA5X2NlcnRfdXJsIjogImh0dHBzOi8vd3d3Lmdvb2dsZWFwaXMuY29tL29hdXRoMi92MS9jZXJ0cyIsCiAgImNsaWVudF94NTA5X2NlcnRfdXJsIjogImh0dHBzOi8vd3d3Lmdvb2dsZWFwaXMuY29tL3JvYm90L3YxL21ldGFkYXRhL3g1MDkveW91ci1zZXJ2aWNlLWFjY291bnQlNDB5b3VyLXByb2plY3QuaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iCn0=
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gcs-cache-pvc
+  namespace: hub-load
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: fast-ssd  # Use your cluster's SSD storage class
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hub-load-results-pvc
+  namespace: hub-load
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub-load-test
+  namespace: hub-load
+  labels:
+    app: hub-load-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hub-load-test
+  template:
+    metadata:
+      labels:
+        app: hub-load-test
+    spec:
+      # Service account for GCS access (if using Workload Identity)
+      serviceAccountName: hub-load-sa
+      
+      # Security context for FUSE mounting
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+      
+      containers:
+      - name: hub-load
+        image: hub-load-test:latest
+        imagePullPolicy: Always
+        
+        # Required for FUSE mounting
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+        
+        # Environment variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: hub-load-config
+        
+        # Sensitive environment variables from Secrets
+        env:
+        - name: BD_HUB_URL
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: BD_HUB_URL
+        - name: API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: API_TOKEN
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/tmp/gcs-credentials/key.json"
+        
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+        
+        # Volume mounts
+        volumeMounts:
+        - name: gcs-credentials
+          mountPath: /tmp/gcs-credentials
+          readOnly: true
+        - name: gcs-cache
+          mountPath: /tmp/gcs-cache
+        - name: results
+          mountPath: /home/hub_load/results
+        - name: dev-fuse
+          mountPath: /dev/fuse
+        
+        # Liveness and readiness probes
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "python3 /home/hub_load/mmap_file_handler.py --help > /dev/null"
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "[ -f /home/hub_load/submit_scans_fixed.sh ]"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Command override for testing
+        command: ["/home/hub_load/docker-entrypoint.sh"]
+        args: ["./test_memory_mapping.sh"]
+      
+      # Volumes
+      volumes:
+      - name: gcs-credentials
+        secret:
+          secretName: gcs-service-account
+      - name: gcs-cache
+        persistentVolumeClaim:
+          claimName: gcs-cache-pvc
+      - name: results
+        persistentVolumeClaim:
+          claimName: hub-load-results-pvc
+      - name: dev-fuse
+        hostPath:
+          path: /dev/fuse
+          type: CharDevice
+      
+      # Node selector for nodes with FUSE support
+      nodeSelector:
+        kubernetes.io/os: linux
+      
+      # Tolerations for dedicated nodes (optional)
+      tolerations:
+      - key: "hub-load"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      
+      # Restart policy
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hub-load-sa
+  namespace: hub-load
+  annotations:
+    # For Google Cloud Workload Identity (optional)
+    iam.gke.io/gcp-service-account: hub-load@your-project.iam.gserviceaccount.com
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: hub-load
+  name: hub-load-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hub-load-rolebinding
+  namespace: hub-load
+subjects:
+- kind: ServiceAccount
+  name: hub-load-sa
+  namespace: hub-load
+roleRef:
+  kind: Role
+  name: hub-load-role
+  apiGroup: rbac.authorization.k8s.io
