@@ -681,27 +681,55 @@ do
   
   OIFS=$IFS; IFS=$'\n';
   
+  # 🚀 OPTIMIZED FILE DISCOVERY - Limit initial search for enhanced multi-scan
+  if [ "${ENABLE_ENHANCED_MULTI_SCAN}" == "yes" ]; then
+    # For enhanced multi-scan, we limit initial discovery to speed up processing
+    # We'll find more files than we need, then filter by size, so start with reasonable limit
+    INITIAL_FILE_LIMIT=2000
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Optimization: Limiting initial discovery to $INITIAL_FILE_LIMIT files for performance"
+  else
+    # For regular scans, find all files (backwards compatibility)
+    INITIAL_FILE_LIMIT=""
+  fi
+  
   if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
     if [ "${SNIPPETS}" == "yes" ]; then
       # Search for snippet files in the specific directory
-      files=($(find "$PROJECT_ROOT" \( -name "*.tar.gz" -o -name "*.zip" \) -print 2>/dev/null))
-      file_type="tar.gz and zip files for snippet scanning"
-      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Looking for: *.tar.gz and *.zip files (snippet mode)"
+      if [ -n "$INITIAL_FILE_LIMIT" ]; then
+        files=($(find "$PROJECT_ROOT" -name "*.tar.gz" -print 2>/dev/null | head -n $INITIAL_FILE_LIMIT))
+      else
+        files=($(find "$PROJECT_ROOT" -name "*.tar.gz" -print 2>/dev/null))
+      fi
+      file_type="tar.gz files for snippet scanning"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Looking for: *.tar.gz files (snippet mode)"
     else
       # Search for jar and zip files in the specific directory
-      files=($(find "$PROJECT_ROOT" \( -name "*.jar" -o -name "*.zip" \) -print 2>/dev/null))
+      if [ -n "$INITIAL_FILE_LIMIT" ]; then
+        files=($(find "$PROJECT_ROOT" \( -name "*.jar" -o -name "*.zip" \) -print 2>/dev/null | head -n $INITIAL_FILE_LIMIT))
+      else
+        files=($(find "$PROJECT_ROOT" \( -name "*.jar" -o -name "*.zip" \) -print 2>/dev/null))
+      fi
       file_type="jar and zip files for signature scanning"
       echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Looking for: *.jar and *.zip files (signature mode)"
     fi
   elif [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
     # Search for binary files in the specific directory
-    files=($(find "$PROJECT_ROOT" \( -name "*.exe" -o -name "*.tar.gz"  -o -name "*.tgz" -o -name "*.dmg" -o -name "*.iso" -o -name "*.ISO" -o -name "*.msi" -o -name "*.rpm" \) -print 2>/dev/null | sort -V))
-    fileNames=($(find "$PROJECT_ROOT" -type f \( -name "*.exe" -o -name "*.tar.gz" -o -name "*.tgz" -o -name "*.dmg" -o -name "*.iso" -o -name "*.ISO" -o -name "*.msi" -o -name "*.rpm" \) -print 2>/dev/null | sort -V | xargs -r basename -a))
+    if [ -n "$INITIAL_FILE_LIMIT" ]; then
+      files=($(find "$PROJECT_ROOT" \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.lib" -o -name "*.rpm" -o -name "*.deb" -o -name "*.msi" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) -print 2>/dev/null | sort -V | head -n $INITIAL_FILE_LIMIT))
+      fileNames=($(find "$PROJECT_ROOT" -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.lib" -o -name "*.rpm" -o -name "*.deb" -o -name "*.msi" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) -print 2>/dev/null | sort -V | head -n $INITIAL_FILE_LIMIT | xargs -r basename -a))
+    else
+      files=($(find "$PROJECT_ROOT" \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.lib" -o -name "*.rpm" -o -name "*.deb" -o -name "*.msi" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) -print 2>/dev/null | sort -V))
+      fileNames=($(find "$PROJECT_ROOT" -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.lib" -o -name "*.rpm" -o -name "*.deb" -o -name "*.msi" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) -print 2>/dev/null | sort -V))
+    fi
     file_type="binary files"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Looking for: *.exe, *.msi, *.tar.gz, *.dmg, *.iso, *.rpm files"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Looking for: *.exe, *.dmg, *.pkg, *.lib, *.rpm, *.deb, *.msi, *.cab, *.img, *.iso, *.vmdk, *.ova, *.vdi, *.ubifs files"
   elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
     # Search for container tar files in the specific directory
-    files=($(find "$PROJECT_ROOT" -name \*.tar -print 2>/dev/null | sort -V))
+    if [ -n "$INITIAL_FILE_LIMIT" ]; then
+      files=($(find "$PROJECT_ROOT" -name \*.tar -print 2>/dev/null | sort -V | head -n $INITIAL_FILE_LIMIT))
+    else
+      files=($(find "$PROJECT_ROOT" -name \*.tar -print 2>/dev/null | sort -V))
+    fi
     file_type="container image files"
     echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Looking for: *.tar files (container images)"
   fi
@@ -749,17 +777,49 @@ do
     
     echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Size range: $((min_size / 1048576))MB - $((max_size / 1048576))MB"
     
-    # Filter files by size
+    # 🚀 OPTIMIZED SIZE FILTERING - Early termination, batch processing, and time limits
+    # Target: Find at least 50-100 files that match the size criteria, then stop
     size_filtered_files=()
     total_checked=0
-    for file in "${files[@]}"; do
-      if [ -f "$file" ]; then
-        file_size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo 0)
-        total_checked=$((total_checked + 1))
-        
-        if [ "$file_size" -ge "$min_size" ] && [ "$file_size" -le "$max_size" ]; then
-          size_filtered_files+=("$file")
+    target_files=100  # Stop after finding this many matching files
+    batch_size=500    # Check files in batches for better performance
+    max_time=30       # Maximum time to spend on size filtering (seconds)
+    start_time=$(date +%s)
+    
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Optimization: Early termination after finding $target_files matching files (max ${max_time}s)"
+    
+    # Process files in batches with early termination and time limits
+    for ((i=0; i<${#files[@]} && ${#size_filtered_files[@]}<$target_files; i+=$batch_size)); do
+      # Check time limit
+      current_time=$(date +%s)
+      elapsed_time=$((current_time - start_time))
+      if [ $elapsed_time -gt $max_time ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⏰ Time limit reached (${elapsed_time}s), stopping with ${#size_filtered_files[@]} files found"
+        break
+      fi
+      
+      batch_end=$((i + batch_size))
+      if [ $batch_end -gt ${#files[@]} ]; then
+        batch_end=${#files[@]}
+      fi
+      
+      # Process current batch
+      for ((j=i; j<batch_end && ${#size_filtered_files[@]}<$target_files; j++)); do
+        file="${files[j]}"
+        if [ -f "$file" ]; then
+          # Use faster stat method - try Linux first, then macOS
+          file_size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
+          total_checked=$((total_checked + 1))
+          
+          if [ "$file_size" -ge "$min_size" ] && [ "$file_size" -le "$max_size" ]; then
+            size_filtered_files+=("$file")
+          fi
         fi
+      done
+      
+      # Progress update every batch
+      if [ $((i / batch_size)) -eq 0 ] || [ $((i % (batch_size * 4))) -eq 0 ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Progress: Found ${#size_filtered_files[@]} matching files (checked $total_checked, ${elapsed_time}s elapsed)"
       fi
     done
     
@@ -961,15 +1021,20 @@ do
       
       echo "$(date '+%Y-%m-%d %H:%M:%S') - file preparation completed"
       
-      # Copy .tar.gz files if enabled and using enhanced multi-scan
-      if [ "${ENABLE_TARGZ_FILES}" == "yes" ] && [ "${ENABLE_ENHANCED_MULTI_SCAN}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 📦 TAR.GZ FILES PROCESSING"
+      # Copy .tar.gz files ONLY for snippet scans (when SNIPPETS=yes)
+      if [ "${ENABLE_TARGZ_FILES}" == "yes" ] && [ "${ENABLE_ENHANCED_MULTI_SCAN}" == "yes" ] && [ "${SNIPPETS}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 📦 TAR.GZ FILES PROCESSING (SNIPPET SCAN ONLY)"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • TAR.GZ files enabled: $ENABLE_TARGZ_FILES"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Snippets mode: $SNIPPETS"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Target directory: $project_name/$cl_name"
         copy_targz_files "$project_name/$cl_name"
         echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ TAR.GZ files copy completed"
       else
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 📦 TAR.GZ files: DISABLED (ENABLE_TARGZ_FILES=$ENABLE_TARGZ_FILES, ENABLE_ENHANCED_MULTI_SCAN=$ENABLE_ENHANCED_MULTI_SCAN)"
+        if [ "${SNIPPETS}" != "yes" ]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - 📦 TAR.GZ files: SKIPPED (Not a snippet scan - SNIPPETS=$SNIPPETS)"
+        else
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - 📦 TAR.GZ files: DISABLED (ENABLE_TARGZ_FILES=$ENABLE_TARGZ_FILES, ENABLE_ENHANCED_MULTI_SCAN=$ENABLE_ENHANCED_MULTI_SCAN)"
+        fi
       fi
 
       echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
