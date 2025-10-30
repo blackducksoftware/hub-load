@@ -105,12 +105,12 @@ function get_elapsed_time() {
   seconds=$(echo $duration_line | awk '{print $11}' | sed -e "s/s//")
   # echo "Seconds: $seconds"  1>&2
 
-  # Clean and validate numeric values to avoid parsing errors
-  hours_clean=$(echo "$hours" | sed 's/[^0-9]//g')
-  minutes_clean=$(echo "$minutes" | sed 's/[^0-9]//g')
-  seconds_clean=$(echo "$seconds" | sed 's/[^0-9]//g')
+  # Clean and validate numeric values to avoid parsing errors, remove leading zeros
+  hours_clean=$(echo "$hours" | sed 's/[^0-9]//g' | sed 's/^0*//')
+  minutes_clean=$(echo "$minutes" | sed 's/[^0-9]//g' | sed 's/^0*//')
+  seconds_clean=$(echo "$seconds" | sed 's/[^0-9]//g' | sed 's/^0*//')
   
-  # Set defaults if empty
+  # Set defaults if empty (after leading zero removal)
   hours_clean=${hours_clean:-0}
   minutes_clean=${minutes_clean:-0}
   seconds_clean=${seconds_clean:-0}
@@ -1009,13 +1009,33 @@ do
           fi
         fi
       else
-        # Original file handling approach
-        if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
-          rsync -a ${project_files[@]} $project_name/$cl_name
-        elif [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
-          ln -f ${project_files[@]} $project_name/$cl_name
-        elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
-          ln -f ${project_files[@]} $project_name/$cl_name
+        # Use symbolic links to save storage space - works across filesystems
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔗 Creating symbolic links to save storage space"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Benefits: No file duplication, cross-filesystem support, minimal storage usage"
+        
+        link_count=0
+        for file in ${project_files[@]}; do
+          if [ -f "$file" ]; then
+            # Create symbolic link with absolute path for cross-filesystem compatibility
+            ln -sf "$(realpath "$file")" "$project_name/$cl_name/$(basename "$file")"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Linked: $(basename "$file") -> $file"
+            link_count=$((link_count + 1))
+          else
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  File not found: $file"
+          fi
+        done
+        
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Created $link_count symbolic links (zero additional storage used)"
+        
+        # Verify symbolic links are working correctly
+        if [ $link_count -gt 0 ]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 Verifying symbolic links..."
+          first_link=$(find "$project_name/$cl_name" -type l -exec basename {} \; | head -1)
+          if [ -n "$first_link" ] && [ -e "$project_name/$cl_name/$first_link" ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ✅ Link verification successful: $first_link"
+          else
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  Link verification failed - may impact scanning"
+          fi
         fi
       fi
       

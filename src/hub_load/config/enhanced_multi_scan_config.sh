@@ -282,13 +282,13 @@ check_scan_type_has_files() {
     case "$scan_type" in
         "SIGNATURE_SCAN")
             if [[ "$scan_type_size" == "SNIPPET_SCAN"* ]]; then
-                file_count=$(find "$local_dir" \( -name "*.tar.gz" -o -name "*.zip" \) -type f 2>/dev/null | wc -l)
+                file_count=$(find "$local_dir" -name "*.tar.gz" -type f 2>/dev/null | wc -l)
             else
                 file_count=$(find "$local_dir" \( -name "*.jar" -o -name "*.zip" \) -type f 2>/dev/null | wc -l)
             fi
             ;;
         "BINARY_SCAN")
-            file_count=$(find "$local_dir" \( -name "*.exe" -o -name "*.tar.gz" -o -name "*.tgz" -o -name "*.dmg" -o -name "*.iso" -o -name "*.ISO" -o -name "*.msi" -o -name "*.rpm" \) -type f 2>/dev/null | wc -l)
+            file_count=$(find "$local_dir" \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.lib" -o -name "*.rpm" -o -name "*.deb" -o -name "*.msi" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) -type f 2>/dev/null | wc -l)
             ;;
         "CONTAINER_SCAN")
             file_count=$(find "$local_dir" -name "*.tar" -type f 2>/dev/null | wc -l)
