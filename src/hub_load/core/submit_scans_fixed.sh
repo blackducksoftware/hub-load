@@ -26,6 +26,8 @@ function show_usage() {
   echo "  SCAN_TYPE=SIGNATURE_SCAN $0"
   echo "  SCAN_TYPE=BINARY_SCAN BD_HUB_URL=https://hub.example.com API_TOKEN=abc123 $0"
   echo "  SCAN_TYPE=CONTAINER_SCAN MAX_SCANS=5 $0"
+  echo "  PARALLEL_SCANS=yes MAX_PARALLEL_JOBS=3 $0  # Enable parallel execution"
+  echo "  PARALLEL_SCANS=yes ENABLE_ENHANCED_MULTI_SCAN=yes MAX_SCANS=100 $0  # Parallel multi-scan"
   echo ""
   exit 1
 }
@@ -232,6 +234,9 @@ fi
 # Docker-friendly defaults - use volumes instead of /tmp for persistence
 GCS_MOUNT_POINT=${GCS_MOUNT_POINT:-/mnt/gcs-data}
 GCS_CACHE_SIZE=${GCS_CACHE_SIZE:-10G}
+# Docker environment configuration
+LOG_DIR=${LOG_DIR:-/app/logs}
+GCS_CACHE_DIR=${GCS_CACHE_DIR:-/app/temp/gcs-cache}
 # Multi-scan configuration
 ENABLE_MULTI_SCAN=${ENABLE_MULTI_SCAN:-no}
 ENABLE_ENHANCED_MULTI_SCAN=${ENABLE_ENHANCED_MULTI_SCAN:-no}
@@ -268,7 +273,14 @@ fi
 PROJECT="Project-$HOSTNAME"
 TIMESTAMP=$(date +%Y%m%d.%H%M%S)
 
-INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS REPEAT_SCAN SYNCHRONOUS_SCANS PARALLEL_SCANS MAX_PARALLEL_JOBS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL DEBUG SCAN_TYPE USE_MEMORY_MAPPING USE_GCS GCS_BUCKET GCS_PREFIX"
+# Core parameters
+INT_PARAMS="BD_HUB_URL API_TOKEN API_TIMEOUT FIXED_COMPONENTS SNIPPETS MAX_SCANS MAX_CODELOCATIONS MIN_COMPONENTS MAX_COMPONENTS MAX_VERSIONS"
+# Execution parameters  
+INT_PARAMS="$INT_PARAMS REPEAT_SCAN SYNCHRONOUS_SCANS PARALLEL_SCANS MAX_PARALLEL_JOBS DETECT_VERSION FAIL_ON_SEVERITIES INSECURE_CURL DEBUG SCAN_TYPE"
+# Storage and GCS parameters
+INT_PARAMS="$INT_PARAMS USE_MEMORY_MAPPING USE_GCS GCS_BUCKET GCS_PREFIX GCS_MOUNT_POINT GCS_CACHE_SIZE"
+# Docker and advanced parameters
+INT_PARAMS="$INT_PARAMS LOG_DIR GCS_CACHE_DIR ENABLE_MULTI_SCAN ENABLE_ENHANCED_MULTI_SCAN TEST_DURATION"
 
 
 if [ "$INTERACTIVE" = "yes" ]
@@ -665,6 +677,7 @@ size_specific_counts["SNIPPET_SCAN_XLARGE"]=0
 # while [ $pos -lt ${#jars[@]} ]
 
 # Check if parallel scan mode is enabled
+echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 PARALLEL_SCANS variable check: '${PARALLEL_SCANS}' (should be 'yes' for parallel mode)"
 if [ "${PARALLEL_SCANS}" == "yes" ]; then
   echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
   echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔄 PARALLEL SCAN MODE ENABLED"
