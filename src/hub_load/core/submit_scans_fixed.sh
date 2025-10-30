@@ -38,15 +38,19 @@ check_java() {
   if ! command -v java >/dev/null 2>&1; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚠️  Java not found in PATH, attempting to locate and configure Java..."
     
-    # Common Java installation paths for Ubuntu/Linux
+    # Common Java installation paths for Ubuntu/Linux (prioritizing JDK 17)
     local java_paths=(
+      "/usr/lib/jvm/java-17-openjdk-amd64/bin/java"
+      "/usr/lib/jvm/java-17-openjdk/bin/java"
+      "/usr/lib/jvm/jdk-17/bin/java"
+      "/usr/lib/jvm/openjdk-17/bin/java"
+      "/opt/java/openjdk-17/bin/java"
+      "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"
       "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"
       "/usr/lib/jvm/java-8-openjdk-amd64/bin/java"
       "/usr/lib/jvm/default-java/bin/java"
       "/usr/bin/java"
       "/opt/java/openjdk/bin/java"
-      "/usr/lib/jvm/java-17-openjdk-amd64/bin/java"
-      "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"
     )
     
     local java_found=""
@@ -65,9 +69,13 @@ check_java() {
       echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Added to PATH: $(dirname "$java_found")"
       echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Set JAVA_HOME: $JAVA_HOME"
     else
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ Java not found. Please install Java:"
-      echo "$(date '+%Y-%m-%d %H:%M:%S') -   Ubuntu/Debian: sudo apt-get update && sudo apt-get install openjdk-11-jdk"
-      echo "$(date '+%Y-%m-%d %H:%M:%S') -   RHEL/CentOS: sudo yum install java-11-openjdk-devel"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ Java not found. Please install JDK 17:"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   Ubuntu/Debian: sudo apt-get update && sudo apt-get install openjdk-17-jdk"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   RHEL/CentOS: sudo yum install java-17-openjdk-devel"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   Alternative: sudo apt-get install openjdk-17-jre-headless openjdk-17-jdk-headless"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - "
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - 💡 Quick install command for JDK 17:"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   sudo apt-get update && sudo apt-get install -y openjdk-17-jdk"
       echo "$(date '+%Y-%m-%d %H:%M:%S') - Exiting..."
       exit 1
     fi
