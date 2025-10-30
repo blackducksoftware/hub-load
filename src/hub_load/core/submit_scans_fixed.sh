@@ -434,6 +434,74 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Initial scan type: $SCAN_TYPE (may change w
 
 echo "...................................."
 
+# ===============================================
+# 📊 ENHANCED MULTI-SCAN TEST SUMMARY 
+# ===============================================
+if [ "${ENABLE_ENHANCED_MULTI_SCAN}" == "yes" ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 📊 ENHANCED MULTI-SCAN TEST SUMMARY"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎯 Test Configuration:"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total scans planned: $MAX_SCANS"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Multi-scan mode: Enhanced"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Data source: Local ($LOCAL_TEST_DATA_DIR)"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Target duration per scan: ${TARGET_DURATION}s"
+  
+  # Get the unified scan configuration
+  unified_config=$(get_unified_scan_config)
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎲 Planned Scan Distribution:"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Configuration: $unified_config"
+  
+  # Parse and display scan type breakdown
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 Expected Scan Type Breakdown (probabilistic):"
+  IFS=',' read -ra PAIRS <<< "$unified_config"
+  total_weight=0
+  for pair in "${PAIRS[@]}"; do
+    IFS=':' read -ra SPLIT <<< "$pair"
+    if [[ ${#SPLIT[@]} -eq 2 ]]; then
+      weight="${SPLIT[1]}"
+      total_weight=$((total_weight + weight))
+    fi
+  done
+  
+  for pair in "${PAIRS[@]}"; do
+    IFS=':' read -ra SPLIT <<< "$pair"
+    if [[ ${#SPLIT[@]} -eq 2 ]]; then
+      scan_type="${SPLIT[0]}"
+      weight="${SPLIT[1]}"
+      percentage=$(( (weight * 100) / total_weight ))
+      expected_count=$(( (weight * MAX_SCANS) / total_weight ))
+      
+      # Get directory for this scan type
+      local_dir=$(get_local_directory_for_scan_type "$scan_type")
+      if [ -d "$local_dir" ]; then
+        file_count=$(find "$local_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • $scan_type: ~$expected_count scans (${percentage}%) - $file_count files available"
+      else
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • $scan_type: ~$expected_count scans (${percentage}%) - ⚠️  Directory not found"
+      fi
+    fi
+  done
+  
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 File Type Mapping:"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • SNIPPET_SCAN: *.tar.gz files (source code snippets)"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • SIGNATURE_SCAN: *.jar, *.zip files (binary libraries)"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • BINARY_SCAN: *.exe, *.dmg, *.pkg, *.lib, *.rpm, *.deb, *.msi, *.iso, etc."
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • CONTAINER_SCAN: *.tar files (container images)"
+  
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 🏗️  File Handling:"
+  if [ "${USE_MEMORY_MAPPING}" == "yes" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Method: Memory mapping (efficient for large files)"
+  else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Method: Symbolic links (zero storage overhead)"
+  fi
+  
+  estimated_time=$(( MAX_SCANS * TARGET_DURATION ))
+  hours=$(( estimated_time / 3600 ))
+  minutes=$(( (estimated_time % 3600) / 60 ))
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ⏱️  Estimated completion time: ${hours}h ${minutes}m (at ${TARGET_DURATION}s per scan)"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+fi
 
 #
 # Seed random number generator
@@ -515,7 +583,7 @@ do
       fi
       
       echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎯 SCAN TYPE SELECTION FOR ITERATION $i"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎯 SCAN TYPE SELECTION FOR ITERATION $((scans + 1))"
       echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
       echo "$(date '+%Y-%m-%d %H:%M:%S') - Selected scan type with size: $SCAN_TYPE_SIZE"
       
@@ -574,13 +642,17 @@ do
         fi
       fi
       
-      # Handle snippet scans
+      # Handle snippet scans - SNIPPETS only applicable for SIGNATURE_SCAN types
       if [[ "$SCAN_TYPE_SIZE" =~ ^SNIPPET_SCAN ]]; then
         SNIPPETS="yes"
         CURRENT_SCAN_TYPE="SIGNATURE_SCAN"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Enabled snippet scanning for $SCAN_TYPE_SIZE"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Enabled snippet scanning for $SCAN_TYPE_SIZE (SIGNATURE_SCAN with snippets)"
       else
+        # Snippets are NOT applicable for BINARY_SCAN, CONTAINER_SCAN, or regular SIGNATURE_SCAN
         SNIPPETS="no"
+        if [[ "$SCAN_TYPE_SIZE" =~ ^(BINARY_SCAN|CONTAINER_SCAN) ]]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - Snippets disabled for $SCAN_TYPE_SIZE (not applicable to ${CURRENT_SCAN_TYPE})"
+        fi
       fi
       
       # Use selected scan type for this iteration
