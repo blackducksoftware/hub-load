@@ -631,6 +631,32 @@ execute_parallel_scan() {
   return 0
 }
 
+# Function to display parallel scan status
+show_parallel_status() {
+  local log_dir="${LOG_DIR:-/app/logs}"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 📊 PARALLEL SCAN STATUS SUMMARY"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Currently running: ${#parallel_jobs[@]} jobs"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Log directory: ${log_dir}/parallel/"
+  
+  if [ "${#parallel_jobs[@]}" -gt 0 ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Active scans:"
+    for pid in "${!parallel_jobs[@]}"; do
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ ${parallel_jobs[$pid]} (PID: $pid)"
+    done
+  fi
+  
+  # Show recent log files
+  if [ -d "${log_dir}/parallel" ]; then
+    recent_logs=$(ls -1t "${log_dir}/parallel/"*.log 2>/dev/null | head -3)
+    if [ -n "$recent_logs" ]; then
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Recent logs:"
+      echo "$recent_logs" | while read log_file; do
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ $(basename "$log_file")"
+      done
+    fi
+  fi
+}
+
 # Function to wait for all parallel jobs to complete
 wait_for_all_parallel_jobs() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') - ⏳ Waiting for all parallel scans to complete..."
@@ -638,15 +664,22 @@ wait_for_all_parallel_jobs() {
   while [ "${#parallel_jobs[@]}" -gt 0 ]; do
     manage_parallel_jobs >/dev/null  # Clean up finished jobs
     if [ "${#parallel_jobs[@]}" -gt 0 ]; then
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - Still waiting for ${#parallel_jobs[@]} parallel scans to finish..."
-      for pid in "${!parallel_jobs[@]}"; do
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • ${parallel_jobs[$pid]} (PID: $pid)"
-      done
+      show_parallel_status
       sleep 10
     fi
   done
   
   echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ All parallel scans completed!"
+  
+  # Final log summary
+  local log_dir="${LOG_DIR:-/app/logs}"
+  if [ -d "${log_dir}/parallel" ]; then
+    total_logs=$(ls -1 "${log_dir}/parallel/"*.log 2>/dev/null | wc -l)
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 Parallel execution summary:"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total individual logs created: $total_logs"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Log location: ${log_dir}/parallel/"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • View individual logs: ls -la ${log_dir}/parallel/"
+  fi
 }
 scan_type_counts["BINARY_SCAN"]=0
 scan_type_counts["SIGNATURE_SCAN"]=0
@@ -1350,27 +1383,57 @@ do
 
       # Prepare scan execution (parallel vs sequential)
       if [ "${PARALLEL_SCANS}" == "yes" ]; then
-        # For parallel execution, create unique log file and set parallel scan ID
+        # For parallel execution, create organized log structure
         # Use Docker-friendly log directory that can be mounted as volume
         log_dir="${LOG_DIR:-/app/logs}"
-        mkdir -p "$log_dir" 2>/dev/null || log_dir="/tmp"
-        detect_log="${log_dir}/detect_parallel_${scans}_$$.log"
+        mkdir -p "$log_dir/parallel" 2>/dev/null || log_dir="/tmp"
+        
+        # Create organized log file with timestamp and scan info
+        scan_timestamp=$(date '+%H%M%S')
+        scan_id="scan_${scans}_${scan_timestamp}"
+        if [ -n "$SCAN_TYPE_SIZE" ]; then
+          detect_log="${log_dir}/parallel/${scan_id}_${SCAN_TYPE_SIZE}.log"
+        else
+          detect_log="${log_dir}/parallel/${scan_id}_${SCAN_TYPE}.log"
+        fi
         scan_start_time=$(date '+%Y-%m-%d %H:%M:%S')
         
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔄 PARALLEL SCAN EXECUTION"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Final Detect Options: $DETECT_OPTIONS"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Parallel log file: $detect_log"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 Scan Details: ${scan_id} (${SCAN_TYPE_SIZE:-$SCAN_TYPE})"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 📝 Individual log: $detect_log"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Detect Options: $DETECT_OPTIONS"
         
-        # Execute in background for parallel mode
+        # Execute in background for parallel mode with organized logging
         (
+          # Create scan header in individual log
+          echo "===============================================" > ${detect_log}
+          echo "🚀 PARALLEL SCAN: ${scan_id}" >> ${detect_log}
+          echo "===============================================" >> ${detect_log}
+          echo "📊 Scan Information:" >> ${detect_log}
+          echo "  • Scan ID: ${scan_id}" >> ${detect_log}
+          echo "  • Scan Type: ${SCAN_TYPE_SIZE:-$SCAN_TYPE}" >> ${detect_log}
+          echo "  • Project: ${project_name}" >> ${detect_log}
+          echo "  • Code Location: ${cl_name}" >> ${detect_log}
+          echo "  • Started: $(date '+%Y-%m-%d %H:%M:%S')" >> ${detect_log}
+          echo "  • PID: $$" >> ${detect_log}
+          echo "===============================================" >> ${detect_log}
+          echo "" >> ${detect_log}
+          
           if [ "${DRY_RUN}" == "yes" ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - DRY_RUN mode: Simulating parallel scan execution"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - DRY_RUN mode: Simulating parallel scan execution" >> ${detect_log}
             sleep 30  # Simulate scan time
-            echo "DRY_RUN: Simulated parallel scan completed in 30 seconds" > ${detect_log}
+            echo "DRY_RUN: Simulated parallel scan completed in 30 seconds" >> ${detect_log}
           else
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting parallel scan execution..."
-            bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.blackduck.com/detect10.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting Detect execution..." >> ${detect_log}
+            bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.blackduck.com/detect10.sh) ${DETECT_OPTIONS} >> ${detect_log} 2>&1
           fi
+          
+          # Add completion footer
+          echo "" >> ${detect_log}
+          echo "===============================================" >> ${detect_log}
+          echo "✅ SCAN COMPLETED: ${scan_id}" >> ${detect_log}
+          echo "  • Finished: $(date '+%Y-%m-%d %H:%M:%S')" >> ${detect_log}
+          echo "===============================================" >> ${detect_log}
         ) &
         
         # Capture background job PID and register it
@@ -1381,8 +1444,12 @@ do
         fi
         parallel_jobs[$scan_pid]="${scan_info}"
         
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🚀 Parallel scan launched: PID=$scan_pid, Info=${scan_info}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - ⏰ Started at: $scan_start_time"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🚀 PARALLEL SCAN LAUNCHED"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Scan ID: ${scan_id}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • PID: $scan_pid"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Type: ${scan_info}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Log: $(basename $detect_log)"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Started: $scan_start_time"
         
         # For parallel mode, don't wait for completion - move to next scan
         # The scan execution time will be calculated when the job completes
@@ -1464,7 +1531,20 @@ do
         # In parallel mode, use scan cadence (TARGET_DURATION) between scan starts
         if [ $scans -lt $MAX_SCANS ]; then
           echo "$(date '+%Y-%m-%d %H:%M:%S') - ⏱️  Parallel mode: Sleeping for ${TARGET_DURATION}s (scan cadence) before next scan start"
-          sleep "$TARGET_DURATION"
+          
+          # Show periodic status during sleep (every 60 seconds for long waits)
+          if [ "$TARGET_DURATION" -gt 60 ]; then
+            for ((i=0; i<TARGET_DURATION; i+=60)); do
+              if [ $i -gt 0 ]; then
+                remaining=$((TARGET_DURATION - i))
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - ⏳ Next scan in ${remaining}s, currently running: $(manage_parallel_jobs) jobs"
+              fi
+              sleep_time=$((TARGET_DURATION - i > 60 ? 60 : TARGET_DURATION - i))
+              sleep "$sleep_time"
+            done
+          else
+            sleep "$TARGET_DURATION"
+          fi
         else
           echo "$(date '+%Y-%m-%d %H:%M:%S') - 🏁 All parallel scans queued - no more intervals needed"
         fi
