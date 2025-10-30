@@ -35,10 +35,23 @@ else
 fi
 
 # Validate test data directory exists
-if [ ! -d "$LOCAL_TEST_DATA_DIR/SCASS" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: SCASS directory not found at: $LOCAL_TEST_DATA_DIR/SCASS" >&2
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Available directories in $LOCAL_TEST_DATA_DIR:" >&2
-    ls -la "$LOCAL_TEST_DATA_DIR" 2>/dev/null || echo "$(date '+%Y-%m-%d %H:%M:%S') - Directory $LOCAL_TEST_DATA_DIR does not exist" >&2
+# Check if the path ends with SCASS or contains SCASS subdirectories
+if [[ "$LOCAL_TEST_DATA_DIR" == */SCASS ]]; then
+    # Path already points to SCASS directory - check if it exists and has subdirectories
+    if [ ! -d "$LOCAL_TEST_DATA_DIR" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: SCASS directory not found at: $LOCAL_TEST_DATA_DIR" >&2
+    elif [ ! "$(ls -A "$LOCAL_TEST_DATA_DIR" 2>/dev/null)" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: SCASS directory is empty: $LOCAL_TEST_DATA_DIR" >&2
+    else
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ SCASS directory found with subdirectories: $LOCAL_TEST_DATA_DIR" >&2
+    fi
+else
+    # Traditional path structure - check for SCASS subdirectory
+    if [ ! -d "$LOCAL_TEST_DATA_DIR/SCASS" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - WARNING: SCASS directory not found at: $LOCAL_TEST_DATA_DIR/SCASS" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Available directories in $LOCAL_TEST_DATA_DIR:" >&2
+        ls -la "$LOCAL_TEST_DATA_DIR" 2>/dev/null || echo "$(date '+%Y-%m-%d %H:%M:%S') - Directory $LOCAL_TEST_DATA_DIR does not exist" >&2
+    fi
 fi
 
 # Cross-platform compatibility detection
@@ -126,7 +139,13 @@ get_repository_for_scan_type() {
 # Get local directory path for scan type (when USE_GCS=no)
 get_local_directory_for_scan_type() {
     local scan_type_size="$1"
-    local base_dir="${LOCAL_TEST_DATA_DIR}/SCASS"
+    
+    # Handle case where LOCAL_TEST_DATA_DIR already ends with SCASS
+    if [[ "$LOCAL_TEST_DATA_DIR" == */SCASS ]]; then
+        local base_dir="$LOCAL_TEST_DATA_DIR"
+    else
+        local base_dir="${LOCAL_TEST_DATA_DIR}/SCASS"
+    fi
     
     case "$scan_type_size" in
         "BINARY_SCAN_SMALL")    echo "${base_dir}/SCA_NON_BDIOS_BINARY_SM_MEDIUM" ;;
@@ -148,7 +167,12 @@ get_local_directory_for_scan_type() {
 
 # Get tar.gz source directory for copying files
 get_targz_source_directory() {
-    local base_dir="${LOCAL_TEST_DATA_DIR}/SCASS"
+    # Handle case where LOCAL_TEST_DATA_DIR already ends with SCASS
+    if [[ "$LOCAL_TEST_DATA_DIR" == */SCASS ]]; then
+        local base_dir="$LOCAL_TEST_DATA_DIR"
+    else
+        local base_dir="${LOCAL_TEST_DATA_DIR}/SCASS"
+    fi
     echo "${base_dir}/${TARGZ_SOURCE_DIR}"
 }
 
@@ -233,26 +257,128 @@ get_unified_scan_config() {
     echo "$final_config"
 }
 
+# Function to check if a scan type has available files
+check_scan_type_has_files() {
+    local scan_type_size="$1"
+    local use_gcs="$2"
+    
+    if [ "$use_gcs" == "yes" ]; then
+        # For GCS, assume files are available (would need GCS integration to check)
+        return 0
+    fi
+    
+    # For local files, check if directory exists and has files
+    local local_dir=$(get_local_directory_for_scan_type "$scan_type_size")
+    
+    if [ ! -d "$local_dir" ]; then
+        return 1
+    fi
+    
+    # Parse scan type to determine file patterns
+    local scan_info=($(parse_scan_type_and_size "$scan_type_size"))
+    local scan_type="${scan_info[0]}"
+    
+    local file_count=0
+    case "$scan_type" in
+        "SIGNATURE_SCAN")
+            if [[ "$scan_type_size" == "SNIPPET_SCAN"* ]]; then
+                file_count=$(find "$local_dir" \( -name "*.tar.gz" -o -name "*.zip" \) -type f 2>/dev/null | wc -l)
+            else
+                file_count=$(find "$local_dir" \( -name "*.jar" -o -name "*.zip" \) -type f 2>/dev/null | wc -l)
+            fi
+            ;;
+        "BINARY_SCAN")
+            file_count=$(find "$local_dir" \( -name "*.exe" -o -name "*.tar.gz" -o -name "*.tgz" -o -name "*.dmg" -o -name "*.iso" -o -name "*.ISO" -o -name "*.msi" -o -name "*.rpm" \) -type f 2>/dev/null | wc -l)
+            ;;
+        "CONTAINER_SCAN")
+            file_count=$(find "$local_dir" -name "*.tar" -type f 2>/dev/null | wc -l)
+            ;;
+        *)
+            file_count=0
+            ;;
+    esac
+    
+    [ "$file_count" -gt 0 ]
+}
+
+# Function to get available scan types with files
+get_available_scan_types() {
+    local use_gcs="$1"
+    local unified_config=$(get_unified_scan_config)
+    local available_types=()
+    
+    IFS=',' read -ra PAIRS <<< "$unified_config"
+    for pair in "${PAIRS[@]}"; do
+        IFS=':' read -ra SPLIT <<< "$pair"
+        if [[ ${#SPLIT[@]} -eq 2 ]]; then
+            local scan_type_size="${SPLIT[0]}"
+            if check_scan_type_has_files "$scan_type_size" "$use_gcs"; then
+                available_types+=("$scan_type_size")
+            fi
+        fi
+    done
+    
+    echo "${available_types[@]}"
+}
+
 # Function to select scan type with size based on weighted distribution
 select_scan_type_with_size() {
+    local use_gcs="${USE_GCS:-no}"
+    
     echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎲 SCAN TYPE SELECTION PROCESS" >&2
     local unified_config=$(get_unified_scan_config)
     echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Unified config: $unified_config" >&2
     
-    local total_weight=$(get_cumulative_weight "$unified_config")
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total weight: $total_weight" >&2
+    # Check available scan types with files
+    local available_types=($(get_available_scan_types "$use_gcs"))
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Available scan types with files: ${#available_types[@]}" >&2
     
-    if [[ $total_weight -eq 0 ]]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • No weights found, using fallback: BINARY_SCAN_MEDIUM" >&2
-        echo "BINARY_SCAN_MEDIUM"
+    if [ ${#available_types[@]} -eq 0 ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  No scan types have available files!" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Returning special marker for no files available" >&2
+        echo "NO_FILES_AVAILABLE"
+        return 1
+    fi
+    
+    # Create a weighted config from only available scan types
+    local available_config=""
+    local total_available_weight=0
+    
+    IFS=',' read -ra PAIRS <<< "$unified_config"
+    for pair in "${PAIRS[@]}"; do
+        IFS=':' read -ra SPLIT <<< "$pair"
+        if [[ ${#SPLIT[@]} -eq 2 ]]; then
+            local scan_type_size="${SPLIT[0]}"
+            local weight="${SPLIT[1]}"
+            
+            # Check if this scan type is in our available list
+            for available_type in "${available_types[@]}"; do
+                if [ "$scan_type_size" == "$available_type" ]; then
+                    if [ -n "$available_config" ]; then
+                        available_config="${available_config},"
+                    fi
+                    available_config="${available_config}${scan_type_size}:${weight}"
+                    total_available_weight=$((total_available_weight + weight))
+                    break
+                fi
+            done
+        fi
+    done
+    
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Available config: $available_config" >&2
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total available weight: $total_available_weight" >&2
+    
+    if [[ $total_available_weight -eq 0 ]]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • No weights for available types, using first available" >&2
+        echo "${available_types[0]}"
         return 0
     fi
     
-    local random_num=$((RANDOM % total_weight))
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Random number: $random_num (range: 0-$((total_weight-1)))" >&2
+    local random_num=$((RANDOM % total_available_weight))
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Random number: $random_num (range: 0-$((total_available_weight-1)))" >&2
     local cumulative=0
     
-    IFS=',' read -ra PAIRS <<< "$unified_config"
+    IFS=',' read -ra PAIRS <<< "$available_config"
     for pair in "${PAIRS[@]}"; do
         IFS=':' read -ra SPLIT <<< "$pair"
         if [[ ${#SPLIT[@]} -eq 2 ]]; then
@@ -268,9 +394,9 @@ select_scan_type_with_size() {
         fi
     done
     
-    # Fallback
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  No match found, using fallback: BINARY_SCAN_MEDIUM" >&2
-    echo "BINARY_SCAN_MEDIUM"
+    # Fallback to first available
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  No match found, using first available: ${available_types[0]}" >&2
+    echo "${available_types[0]}"
 }
 
 # Function to parse scan type and size from combined string

@@ -434,6 +434,22 @@ do
     if [ "${ENABLE_ENHANCED_MULTI_SCAN}" == "yes" ]; then
       # Enhanced multi-scan with size-based repositories
       SCAN_TYPE_SIZE=$(select_scan_type_with_size)
+      
+      # Check if no files are available for any scan type
+      if [ "$SCAN_TYPE_SIZE" == "NO_FILES_AVAILABLE" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ NO FILES AVAILABLE FOR ANY SCAN TYPE"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🚫 Cannot proceed with scans - no test data files found!"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 💡 Possible solutions:"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Check LOCAL_TEST_DATA_DIR path: $LOCAL_TEST_DATA_DIR"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Verify test data directories exist and contain files"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Use USE_GCS=yes to access cloud-based test data"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Exiting to prevent infinite loop."
+        exit 1
+      fi
+      
       echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
       echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎯 SCAN TYPE SELECTION FOR ITERATION $i"
       echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
