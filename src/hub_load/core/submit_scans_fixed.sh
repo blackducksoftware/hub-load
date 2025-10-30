@@ -20,7 +20,7 @@ function show_usage() {
   echo "  USE_GCS=<yes/no>           Use Google Cloud Storage for test data (default: no)"
   echo "  GCS_BUCKET=<bucket>        GCS bucket name (required if USE_GCS=yes)"
   echo "  GCS_PREFIX=<prefix>        GCS prefix/folder path (optional)"
-  echo "  GCS_MOUNT_POINT=<path>     Local mount point for GCS (default: /tmp/gcs-mount)"
+  echo "  GCS_MOUNT_POINT=<path>     Local mount point for GCS (default: /mnt/gcs-data)"
   echo ""
   echo "Examples:"
   echo "  SCAN_TYPE=SIGNATURE_SCAN $0"
@@ -88,6 +88,38 @@ check_java() {
 
 # Run Java check
 check_java
+
+# Docker-specific optimizations and checks
+check_docker_environment() {
+  # Check if running in Docker container
+  if [ -f /.dockerenv ] || [ -n "${KUBERNETES_SERVICE_HOST}" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🐳 Detected container environment"
+    
+    # Set container-optimized defaults
+    export DOCKER_ENVIRONMENT="yes"
+    
+    # Optimize for container resource limits
+    if [ -z "${MAX_PARALLEL_JOBS}" ]; then
+      # Auto-detect container CPU limits for parallel jobs
+      cpu_limit=$(nproc 2>/dev/null || echo "2")
+      MAX_PARALLEL_JOBS=$((cpu_limit > 4 ? 4 : cpu_limit))
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Auto-set MAX_PARALLEL_JOBS=$MAX_PARALLEL_JOBS based on container CPUs"
+    fi
+    
+    # Check for required directories and create if needed
+    mkdir -p /mnt/gcs-data /app/logs /app/temp 2>/dev/null || true
+    
+    # Set proper permissions for volume mounts
+    if [ -w "/mnt/gcs-data" ]; then
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ GCS mount point writable: /mnt/gcs-data"
+    else
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚠️  GCS mount point not writable: /mnt/gcs-data"
+    fi
+  fi
+}
+
+# Run Docker environment check
+check_docker_environment
 
 function readvar() {
    echo -n "Enter value for $1 [${!1}] "
@@ -197,7 +229,8 @@ if [ "${USE_GCS}" != "yes" ]; then
 else
   LOCAL_TEST_DATA_DIR=${LOCAL_TEST_DATA_DIR:-"${WORKDIR}/../../../test-data"}
 fi
-GCS_MOUNT_POINT=${GCS_MOUNT_POINT:-/tmp/gcs-mount}
+# Docker-friendly defaults - use volumes instead of /tmp for persistence
+GCS_MOUNT_POINT=${GCS_MOUNT_POINT:-/mnt/gcs-data}
 GCS_CACHE_SIZE=${GCS_CACHE_SIZE:-10G}
 # Multi-scan configuration
 ENABLE_MULTI_SCAN=${ENABLE_MULTI_SCAN:-no}
@@ -366,8 +399,10 @@ if [ "${USE_GCS}" == "yes" ]; then
   else
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Mounting GCS bucket gs://$GCS_BUCKET to $GCS_MOUNT_POINT"
     
-    # Mount with optimizations for performance
-    GCSFUSE_OPTIONS="--temp-dir /tmp/gcs-cache --limit-bytes $GCS_CACHE_SIZE --stat-cache-ttl 1h --type-cache-ttl 1h"
+    # Mount with optimizations for performance (Docker-friendly cache location)
+    cache_dir="${GCS_CACHE_DIR:-/app/temp/gcs-cache}"
+    mkdir -p "$cache_dir" 2>/dev/null || cache_dir="/tmp/gcs-cache"
+    GCSFUSE_OPTIONS="--temp-dir $cache_dir --limit-bytes $GCS_CACHE_SIZE --stat-cache-ttl 1h --type-cache-ttl 1h"
     
     if [ "${DEBUG}" == "yes" ]; then
       GCSFUSE_OPTIONS="$GCSFUSE_OPTIONS --debug_gcs --debug_fuse"
@@ -1303,7 +1338,10 @@ do
       # Prepare scan execution (parallel vs sequential)
       if [ "${PARALLEL_SCANS}" == "yes" ]; then
         # For parallel execution, create unique log file and set parallel scan ID
-        detect_log="/tmp/detect_parallel_${scans}_$$.log"
+        # Use Docker-friendly log directory that can be mounted as volume
+        log_dir="${LOG_DIR:-/app/logs}"
+        mkdir -p "$log_dir" 2>/dev/null || log_dir="/tmp"
+        detect_log="${log_dir}/detect_parallel_${scans}_$$.log"
         scan_start_time=$(date '+%Y-%m-%d %H:%M:%S')
         
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔄 PARALLEL SCAN EXECUTION"
@@ -1338,7 +1376,9 @@ do
         elapsed_time=0  # Will be updated when parallel job finishes
       else
         # Sequential execution (original behavior)
-        detect_log=/tmp/detect_$$.log
+        log_dir="${LOG_DIR:-/app/logs}"
+        mkdir -p "$log_dir" 2>/dev/null || log_dir="/tmp"
+        detect_log="${log_dir}/detect_$$.log"
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Final Detect Options: $DETECT_OPTIONS"
         
         if [ "${DRY_RUN}" == "yes" ]; then
