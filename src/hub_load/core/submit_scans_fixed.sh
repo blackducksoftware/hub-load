@@ -1258,6 +1258,53 @@ do
     echo "end: $end"
     echo "next_pos_for_${SCAN_TYPE_KEY}: ${scan_type_positions[$SCAN_TYPE_KEY]}"
     echo "files in project_files: ${#project_files[@]}"
+    
+    # 📋 DETAILED FILE SUBMISSION LOGGING (based on FIXED_COMPONENTS)
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 DETAILED FILE SUBMISSION FOR SCAN $((scans + 1))"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Selection Parameters:"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • FIXED_COMPONENTS setting: $FIXED_COMPONENTS"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total files available: ${#files[@]}"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Files selected for this scan: ${#project_files[@]}"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Selection range: [$start_pos:$((start_pos + num_files - 1))]"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 📁 Selected Files for Submission:"
+    
+    if [ ${#project_files[@]} -eq 0 ]; then
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ NO FILES SELECTED! This will cause 0 matches."
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 Debugging info:"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • files array size: ${#files[@]}"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • start_pos: $start_pos"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • num_files: $num_files"
+      if [ ${#files[@]} -gt 0 ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • First few available files:"
+        for i in {0..2}; do
+          if [ $i -lt ${#files[@]} ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -     [$i]: $(basename "${files[$i]}")"
+          fi
+        done
+      fi
+    else
+      for i in "${!project_files[@]}"; do
+        file="${project_files[$i]}"
+        file_size=""
+        if [ -f "$file" ]; then
+          if command -v stat >/dev/null 2>&1; then
+            if stat -c%s "$file" >/dev/null 2>&1; then
+              file_size=$(stat -c%s "$file" 2>/dev/null | numfmt --to=iec 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+            else
+              file_size=$(stat -f%z "$file" 2>/dev/null | numfmt --to=iec 2>/dev/null || stat -f%z "$file" 2>/dev/null)
+            fi
+          fi
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -   [$((i+1))]: $(basename "$file") (${file_size:-unknown})"
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -       Full path: $file"
+        else
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -   [$((i+1))]: $(basename "$file") ❌ FILE NOT FOUND"
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -       Full path: $file"
+        fi
+      done
+    fi
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
     if [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
       echo "project_files: ${fileNames[@]}"
     else
