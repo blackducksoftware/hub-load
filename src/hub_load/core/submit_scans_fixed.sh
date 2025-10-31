@@ -1307,12 +1307,16 @@ do
         # Use Python memory mapping for efficient file access
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Using memory mapping for file access"
         
+        # Determine the correct path to memory mapping handler
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        MMAP_HANDLER="$SCRIPT_DIR/../memory_mapping/mmap_file_handler.py"
+        
         if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
           # For signature scans, still need to copy/link files to scan directory
-          python3 "$WORKDIR/../memory_mapping/mmap_file_handler.py" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose
+          python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose
         else
           # For binary and container scans, create memory-mapped links
-          prepared_files=($(python3 "$WORKDIR/../memory_mapping/mmap_file_handler.py" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name"))
+          prepared_files=($(python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name"))
           if [ ${#prepared_files[@]} -eq 0 ]; then
             echo "ERROR: Memory mapping preparation failed"
             exit 1
