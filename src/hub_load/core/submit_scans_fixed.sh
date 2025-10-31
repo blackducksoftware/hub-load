@@ -1309,10 +1309,10 @@ do
         
         if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
           # For signature scans, still need to copy/link files to scan directory
-          python3 "$WORKDIR/mmap_file_handler.py" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose
+          python3 "$WORKDIR/../memory_mapping/mmap_file_handler.py" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose
         else
           # For binary and container scans, create memory-mapped links
-          prepared_files=($(python3 "$WORKDIR/mmap_file_handler.py" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name"))
+          prepared_files=($(python3 "$WORKDIR/../memory_mapping/mmap_file_handler.py" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name"))
           if [ ${#prepared_files[@]} -eq 0 ]; then
             echo "ERROR: Memory mapping preparation failed"
             exit 1
