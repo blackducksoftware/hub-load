@@ -1307,19 +1307,59 @@ do
         # Use Python memory mapping for efficient file access
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Using memory mapping for file access"
         
-        # Determine the correct path to memory mapping handler
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        # Determine the correct path to memory mapping handler (cross-platform compatible)
+        SCRIPT_PATH="${BASH_SOURCE[0]}"
+        # Handle relative paths by making them absolute
+        if [[ "$SCRIPT_PATH" != /* ]]; then
+          SCRIPT_PATH="$(pwd)/$SCRIPT_PATH"
+        fi
+        # Get the directory containing the script
+        SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+        # Construct path to memory mapping handler
         MMAP_HANDLER="$SCRIPT_DIR/../memory_mapping/mmap_file_handler.py"
         
-        if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
-          # For signature scans, still need to copy/link files to scan directory
-          python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose
-        else
-          # For binary and container scans, create memory-mapped links
-          prepared_files=($(python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name"))
-          if [ ${#prepared_files[@]} -eq 0 ]; then
-            echo "ERROR: Memory mapping preparation failed"
-            exit 1
+        # Debug information for troubleshooting
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Debug: Script path: $SCRIPT_PATH"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Debug: Script dir: $SCRIPT_DIR"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 Debug: Handler path: $MMAP_HANDLER"
+        
+        # Verify the handler exists before proceeding
+        if [ ! -f "$MMAP_HANDLER" ]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚠️  Memory mapping handler not found at: $MMAP_HANDLER"
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 Searching for mmap_file_handler.py..."
+          # Try alternative paths
+          ALT_PATHS=(
+            "$SCRIPT_DIR/../../memory_mapping/mmap_file_handler.py"
+            "$SCRIPT_DIR/../../../memory_mapping/mmap_file_handler.py" 
+            "$(pwd)/src/hub_load/memory_mapping/mmap_file_handler.py"
+            "$(dirname "$(pwd)")/memory_mapping/mmap_file_handler.py"
+          )
+          for alt_path in "${ALT_PATHS[@]}"; do
+            if [ -f "$alt_path" ]; then
+              MMAP_HANDLER="$alt_path"
+              echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Found handler at: $MMAP_HANDLER"
+              break
+            fi
+          done
+          
+          if [ ! -f "$MMAP_HANDLER" ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ Could not locate memory mapping handler. Falling back to symbolic links."
+            USE_MEMORY_MAPPING="no"
+          fi
+        fi
+        
+        # Only proceed with memory mapping if handler was found
+        if [ "${USE_MEMORY_MAPPING}" == "yes" ] && [ -f "$MMAP_HANDLER" ]; then
+          if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
+            # For signature scans, still need to copy/link files to scan directory
+            python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose
+          else
+            # For binary and container scans, create memory-mapped links
+            prepared_files=($(python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name"))
+            if [ ${#prepared_files[@]} -eq 0 ]; then
+              echo "ERROR: Memory mapping preparation failed"
+              exit 1
+            fi
           fi
         fi
       else
