@@ -632,11 +632,15 @@ declare -A parallel_jobs  # Track running parallel jobs: PID->scan_info
 declare -a parallel_job_queue  # Queue for parallel jobs
 
 # Function to manage parallel job execution
-# Function to clean up completed parallel jobs and extract their summaries  
-cleanup_completed_parallel_jobs() {
-  # Process completed jobs and extract summaries
+manage_parallel_jobs() {
+  local max_jobs=${MAX_PARALLEL_JOBS:-3}
+  local running_jobs=0
+  
+  # Count currently running jobs and extract summaries from completed ones
   for pid in "${!parallel_jobs[@]}"; do
-    if ! kill -0 "$pid" 2>/dev/null; then
+    if kill -0 "$pid" 2>/dev/null; then
+      ((running_jobs++))
+    else
       # Job finished, clean up and extract scan summary
       local job_info="${parallel_jobs[$pid]}"
       echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Parallel scan completed: $job_info"
@@ -648,8 +652,9 @@ cleanup_completed_parallel_jobs() {
       
       # Try to find the log file for this completed scan
       if [ -d "$log_dir/parallel" ]; then
-        # Look for log files that might match this job
-        local matching_logs=$(find "$log_dir/parallel" -name "*.log" -newer <(date -d '5 minutes ago' '+%Y-%m-%d %H:%M:%S' 2>/dev/null) 2>/dev/null | head -1)
+        # Look for log files that might match this job  
+        # Use a simpler approach that works on both GNU and BSD systems
+        local matching_logs=$(find "$log_dir/parallel" -name "*.log" -mtime -1 2>/dev/null | head -1)
         
         if [ -z "$matching_logs" ]; then
           # Fallback: find most recent log file
@@ -668,31 +673,8 @@ cleanup_completed_parallel_jobs() {
       unset parallel_jobs[$pid]
     fi
   done
-}
-
-# Function to count currently running parallel jobs (numeric only)
-manage_parallel_jobs() {
-  local max_jobs=${MAX_PARALLEL_JOBS:-3}
-  local running_jobs=0
-  
-  # First clean up completed jobs
-  cleanup_completed_parallel_jobs
-  
-  # Count currently running jobs
-  for pid in "${!parallel_jobs[@]}"; do
-    if kill -0 "$pid" 2>/dev/null; then
-      ((running_jobs++))
-    fi
-  done
   
   echo "$running_jobs"
-}
-
-# Function to display parallel job status with completion messages
-display_parallel_job_status() {
-  local running_count=$(manage_parallel_jobs)
-  local max_jobs=${MAX_PARALLEL_JOBS:-3}
-  echo "${running_count} / ${max_jobs}"
 }
 
 # Function to wait for parallel job slots
@@ -1298,12 +1280,7 @@ do
     echo "num_files: $num_files"
     echo "end: $end"
     echo "files in project_files: ${#project_files[@]}"
-    # Show only filenames for cleaner output
-    project_files_basenames=()
-    for file in "${project_files[@]}"; do
-      project_files_basenames+=("$(basename "$file")")
-    done
-    echo "project_files: ${project_files_basenames[@]}"
+    echo "project_files: ${project_files[@]}"
   # checking for Random Scans Flag. If the flag is set to No, components chosen to submit scans will be repeatable between releases.
   elif [  "${RANDOM_SCANS}" == "no"  ]; then
     # Use per-scan-type position tracking for consistent sequential selection
@@ -1399,25 +1376,18 @@ do
             fi
           fi
           echo "$(date '+%Y-%m-%d %H:%M:%S') -   [$((i+1))]: $(basename "$file") (${file_size:-unknown})"
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -       Full path: $file"
         else
           echo "$(date '+%Y-%m-%d %H:%M:%S') -   [$((i+1))]: $(basename "$file") ❌ FILE NOT FOUND"
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -       Full path: $file"
         fi
       done
     fi
     echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
-    # Show only filenames for cleaner output
     if [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
-      filenames_only=()
-      for file in "${fileNames[@]}"; do
-        filenames_only+=("$(basename "$file")")
-      done
-      echo "project_files: ${filenames_only[@]}"
+      echo "project_files: ${fileNames[@]}"
     else
-      filenames_only=()
-      for file in "${project_files[@]}"; do
-        filenames_only+=("$(basename "$file")")
-      done
-      echo "project_files: ${filenames_only[@]}"
+      echo "project_files: ${project_files[@]}"
     fi
 
   fi
@@ -1626,6 +1596,7 @@ do
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${fileNames[start_pos]}"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Code location: ${cl_name}"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Binary file: ${fileNames[start_pos]}"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Full path: ${project_name}/${cl_name}/${fileNames[start_pos]}"
         
       elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚙️  CONTAINER_SCAN specific configuration:"
@@ -1792,7 +1763,7 @@ do
         fi
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Project: $project_name"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Queued: $((scans + 1)) / $MAX_SCANS scans"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Running parallel jobs: $(display_parallel_job_status)"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Running parallel jobs: $(manage_parallel_jobs)"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Execution mode: PARALLEL (background)"
         
         # Clean up log file reference for parallel mode
