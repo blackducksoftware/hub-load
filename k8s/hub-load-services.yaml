@@ -9,7 +9,7 @@ metadata:
 spec:
   selector:
     app: hub-load
-    version: enhanced
+    version: enhancedIt
   ports:
     - name: monitoring
       port: 8080

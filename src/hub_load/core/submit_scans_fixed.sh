@@ -708,6 +708,63 @@ size_specific_counts["SNIPPET_SCAN_SMALL"]=0
 size_specific_counts["SNIPPET_SCAN_MEDIUM"]=0
 size_specific_counts["SNIPPET_SCAN_LARGE"]=0
 size_specific_counts["SNIPPET_SCAN_XLARGE"]=0
+
+# Arrays to store detailed scan information for reporting
+declare -a scan_details_small=()
+declare -a scan_details_medium=()
+declare -a scan_details_large=()
+declare -a scan_details_xlarge=()
+
+# Individual scan file size tracking (for detailed reporting per scan)
+declare -A individual_scan_sizes
+
+# Function to calculate total size of files in bytes
+calculate_files_size() {
+  local files=("$@")
+  local total_size=0
+  
+  for file in "${files[@]}"; do
+    if [ -f "$file" ]; then
+      # Use stat to get file size in bytes (cross-platform compatible)
+      if stat -c%s "$file" >/dev/null 2>&1; then
+        # Linux
+        size=$(stat -c%s "$file" 2>/dev/null || echo 0)
+      else
+        # macOS/BSD
+        size=$(stat -f%z "$file" 2>/dev/null || echo 0)
+      fi
+      total_size=$((total_size + size))
+    fi
+  done
+  
+  echo $total_size
+}
+
+# Function to format bytes into human readable format
+format_bytes() {
+  local bytes=$1
+  local units=("B" "KB" "MB" "GB" "TB")
+  local unit=0
+  local size=$bytes
+  
+  while [ $size -gt 1024 ] && [ $unit -lt 4 ]; do
+    size=$((size / 1024))
+    unit=$((unit + 1))
+  done
+  
+  if [ $unit -eq 0 ]; then
+    echo "${size}${units[$unit]}"
+  else
+    # Use bc for decimal precision if available, otherwise use integer division
+    if command -v bc >/dev/null 2>&1; then
+      formatted=$(echo "scale=1; $bytes / (1024^$unit)" | bc 2>/dev/null || echo "$size")
+      echo "${formatted}${units[$unit]}"
+    else
+      echo "${size}${units[$unit]}"
+    fi
+  fi
+}
+
 # while [ $pos -lt ${#jars[@]} ]
 
 # Check if parallel scan mode is enabled
@@ -1525,6 +1582,32 @@ do
       # Increment size-specific counter if SCAN_TYPE_SIZE is available
       if [ -n "$SCAN_TYPE_SIZE" ]; then
         ((size_specific_counts["$SCAN_TYPE_SIZE"]++))
+        
+        # Calculate total file size for this scan
+        if [ ${#project_files[@]} -gt 0 ]; then
+          scan_file_size=$(calculate_files_size "${project_files[@]}")
+        else
+          scan_file_size=0
+        fi
+        
+        # Add to cumulative file size tracking
+        cumulative_file_sizes["$SCAN_TYPE_SIZE"]=$((${cumulative_file_sizes["$SCAN_TYPE_SIZE"]} + scan_file_size))
+        
+        # Capture detailed scan information for reporting (including file size)
+        source_file="${SOURCE_FILE:-$(basename "${project_files[0]}" 2>/dev/null || echo 'N/A')}"
+        formatted_size=$(format_bytes $scan_file_size)
+        scan_detail="${SCAN_TYPE}|${scan_id:-scan_N/A}|${project_name:-project_N/A}|v${v:-0}|${cl_name:-cl_N/A}|${source_file}|${formatted_size}"
+        
+        # Store scan details by size category for later reporting
+        if [[ "$SCAN_TYPE_SIZE" == *"_SMALL" ]]; then
+          scan_details_small+=("$scan_detail")
+        elif [[ "$SCAN_TYPE_SIZE" == *"_MEDIUM" ]]; then
+          scan_details_medium+=("$scan_detail")
+        elif [[ "$SCAN_TYPE_SIZE" == *"_LARGE" ]]; then
+          scan_details_large+=("$scan_detail")
+        elif [[ "$SCAN_TYPE_SIZE" == *"_XLARGE" ]]; then
+          scan_details_xlarge+=("$scan_detail")
+        fi
       fi
       
       # Handle sleep/wait logic differently for parallel vs sequential mode
@@ -1600,28 +1683,34 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Target scans: $MAX_SCANS"
 echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 Detailed Scan Type Breakdown:"
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   • BINARY_SCAN: ${scan_type_counts["BINARY_SCAN"]} scans"
 # Calculate size-grouped totals for Binary scans
-binary_small_medium=$((${size_specific_counts["BINARY_SCAN_SMALL"]} + ${size_specific_counts["BINARY_SCAN_MEDIUM"]}))
+binary_small=${size_specific_counts["BINARY_SCAN_SMALL"]}
+binary_medium=${size_specific_counts["BINARY_SCAN_MEDIUM"]}
 binary_large=${size_specific_counts["BINARY_SCAN_LARGE"]}
 binary_xlarge=${size_specific_counts["BINARY_SCAN_XLARGE"]}
-echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small & Medium: $binary_small_medium scans"
+echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small: $binary_small scans"
+echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Medium: $binary_medium scans"
 echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Large: $binary_large scans"
 echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ XLarge: $binary_xlarge scans"
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   • SIGNATURE_SCAN: ${scan_type_counts["SIGNATURE_SCAN"]} scans"
 # Calculate size-grouped totals for Signature scans
-signature_small_medium=$((${size_specific_counts["SIGNATURE_SCAN_SMALL"]} + ${size_specific_counts["SIGNATURE_SCAN_MEDIUM"]}))
+signature_small=${size_specific_counts["SIGNATURE_SCAN_SMALL"]}
+signature_medium=${size_specific_counts["SIGNATURE_SCAN_MEDIUM"]}
 signature_large=${size_specific_counts["SIGNATURE_SCAN_LARGE"]}
 signature_xlarge=${size_specific_counts["SIGNATURE_SCAN_XLARGE"]}
-echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small & Medium: $signature_small_medium scans"
+echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small: $signature_small scans"
+echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Medium: $signature_medium scans"
 echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Large: $signature_large scans"
 echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ XLarge: $signature_xlarge scans"
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   • CONTAINER_SCAN: ${scan_type_counts["CONTAINER_SCAN"]} scans"
 # Calculate size-grouped totals for Container scans
-container_small_medium=$((${size_specific_counts["CONTAINER_SCAN_SMALL"]} + ${size_specific_counts["CONTAINER_SCAN_MEDIUM"]}))
+container_small=${size_specific_counts["CONTAINER_SCAN_SMALL"]}
+container_medium=${size_specific_counts["CONTAINER_SCAN_MEDIUM"]}
 container_large=${size_specific_counts["CONTAINER_SCAN_LARGE"]}
 container_xlarge=${size_specific_counts["CONTAINER_SCAN_XLARGE"]}
-echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small & Medium: $container_small_medium scans"
+echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small: $container_small scans"
+echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Medium: $container_medium scans"
 echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Large: $container_large scans"
 echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ XLarge: $container_xlarge scans"
 
@@ -1629,10 +1718,12 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ XLarge: $container_xlarge scans"
 snippet_total=$((${size_specific_counts["SNIPPET_SCAN_SMALL"]} + ${size_specific_counts["SNIPPET_SCAN_MEDIUM"]} + ${size_specific_counts["SNIPPET_SCAN_LARGE"]} + ${size_specific_counts["SNIPPET_SCAN_XLARGE"]}))
 if [ $snippet_total -gt 0 ]; then
   echo "$(date '+%Y-%m-%d %H:%M:%S') -   • SNIPPET_SCAN: $snippet_total scans"
-  snippet_small_medium=$((${size_specific_counts["SNIPPET_SCAN_SMALL"]} + ${size_specific_counts["SNIPPET_SCAN_MEDIUM"]}))
+  snippet_small=${size_specific_counts["SNIPPET_SCAN_SMALL"]}
+  snippet_medium=${size_specific_counts["SNIPPET_SCAN_MEDIUM"]} 
   snippet_large=${size_specific_counts["SNIPPET_SCAN_LARGE"]}
   snippet_xlarge=${size_specific_counts["SNIPPET_SCAN_XLARGE"]}
-  echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small & Medium: $snippet_small_medium scans"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Small: $snippet_small scans"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Medium: $snippet_medium scans"
   echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ Large: $snippet_large scans"
   echo "$(date '+%Y-%m-%d %H:%M:%S') -     ◦ XLarge: $snippet_xlarge scans"
 fi
@@ -1643,4 +1734,46 @@ if [ -n "$MULTI_SCAN_CONFIG" ]; then
   echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Scan distribution: $MULTI_SCAN_CONFIG"
 fi
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Storage backend: $([ "$USE_GCS" == "yes" ] && echo "GCS (gs://$GCS_BUCKET/$GCS_PREFIX)" || echo "Local ($PROJECT_ROOT)")"
+
+# Calculate and display total file sizes processed (sum of all individual scans)
+total_file_size=0
+for scan_id in "${!individual_scan_sizes[@]}"; do
+  total_file_size=$((total_file_size + ${individual_scan_sizes[$scan_id]}))
+done
+total_formatted_size=$(format_bytes $total_file_size)
+echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total file size processed: $total_formatted_size"
+
+# Print detailed scan information by size category
+echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+echo "$(date '+%Y-%m-%d %H:%M:%S') - 📄 DETAILED SCAN INFORMATION"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+
+# Helper function to print scan details
+print_scan_details() {
+  local category="$1"
+  local count="$2"
+  shift 2
+  local details=("$@")
+  
+  if [ $count -gt 0 ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 $category Scans ($count):"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   Format: ScanType|ScanID|ProjectName|Version|CodeLocation|SourceFile|FileSize"
+    for detail in "${details[@]}"; do
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • $detail"
+    done
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - "
+  fi
+}
+
+# Print details by size category
+total_small=$((${size_specific_counts["BINARY_SCAN_SMALL"]} + ${size_specific_counts["SIGNATURE_SCAN_SMALL"]} + ${size_specific_counts["CONTAINER_SCAN_SMALL"]} + ${size_specific_counts["SNIPPET_SCAN_SMALL"]}))
+total_medium=$((${size_specific_counts["BINARY_SCAN_MEDIUM"]} + ${size_specific_counts["SIGNATURE_SCAN_MEDIUM"]} + ${size_specific_counts["CONTAINER_SCAN_MEDIUM"]} + ${size_specific_counts["SNIPPET_SCAN_MEDIUM"]}))
+total_large=$((${size_specific_counts["BINARY_SCAN_LARGE"]} + ${size_specific_counts["SIGNATURE_SCAN_LARGE"]} + ${size_specific_counts["CONTAINER_SCAN_LARGE"]} + ${size_specific_counts["SNIPPET_SCAN_LARGE"]}))
+total_xlarge=$((${size_specific_counts["BINARY_SCAN_XLARGE"]} + ${size_specific_counts["SIGNATURE_SCAN_XLARGE"]} + ${size_specific_counts["CONTAINER_SCAN_XLARGE"]} + ${size_specific_counts["SNIPPET_SCAN_XLARGE"]}))
+
+print_scan_details "SMALL" $total_small "${scan_details_small[@]}"
+print_scan_details "MEDIUM" $total_medium "${scan_details_medium[@]}"
+print_scan_details "LARGE" $total_large "${scan_details_large[@]}"
+print_scan_details "XLARGE" $total_xlarge "${scan_details_xlarge[@]}"
+
 echo "$(date '+%Y-%m-%d %H:%M:%S') - 🏁 Hub load testing session finished successfully"
