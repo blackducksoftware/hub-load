@@ -68,7 +68,10 @@ class MMapFileHandler:
                 logging.warning(f"Had to copy file {source_path} to {dest_path}")
         
         self.temp_links.append(dest_path)
-        logging.info(f"Created {link_type} link: {dest_path} -> {source_path}")
+        # Show only filename for cleaner output
+        dest_filename = dest_path.name
+        source_filename = Path(source_path).name
+        logging.info(f"Created {link_type} link: {dest_filename} -> {source_filename}")
         return str(dest_path)
     
     def memory_map_file(self, file_path, mode='r'):
@@ -253,7 +256,8 @@ class MMapFileHandler:
             try:
                 if temp_link.exists():
                     temp_link.unlink()
-                    logging.info(f"Removed temporary link: {temp_link}")
+                    # Show only filename for cleaner output
+                    logging.info(f"Removed temporary link: {temp_link.name}")
             except Exception as e:
                 logging.error(f"Error removing temporary link {temp_link}: {e}")
         

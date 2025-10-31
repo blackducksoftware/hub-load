@@ -1298,7 +1298,12 @@ do
     echo "num_files: $num_files"
     echo "end: $end"
     echo "files in project_files: ${#project_files[@]}"
-    echo "project_files: ${project_files[@]}"
+    # Show only filenames for cleaner output
+    project_files_basenames=()
+    for file in "${project_files[@]}"; do
+      project_files_basenames+=("$(basename "$file")")
+    done
+    echo "project_files: ${project_files_basenames[@]}"
   # checking for Random Scans Flag. If the flag is set to No, components chosen to submit scans will be repeatable between releases.
   elif [  "${RANDOM_SCANS}" == "no"  ]; then
     # Use per-scan-type position tracking for consistent sequential selection
@@ -1394,18 +1399,25 @@ do
             fi
           fi
           echo "$(date '+%Y-%m-%d %H:%M:%S') -   [$((i+1))]: $(basename "$file") (${file_size:-unknown})"
-          echo "$(date '+%Y-%m-%d %H:%M:%S') -       Full path: $file"
         else
           echo "$(date '+%Y-%m-%d %H:%M:%S') -   [$((i+1))]: $(basename "$file") ❌ FILE NOT FOUND"
-          echo "$(date '+%Y-%m-%d %H:%M:%S') -       Full path: $file"
         fi
       done
     fi
     echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+    # Show only filenames for cleaner output
     if [ "${SCAN_TYPE}" == "BINARY_SCAN" ]; then
-      echo "project_files: ${fileNames[@]}"
+      filenames_only=()
+      for file in "${fileNames[@]}"; do
+        filenames_only+=("$(basename "$file")")
+      done
+      echo "project_files: ${filenames_only[@]}"
     else
-      echo "project_files: ${project_files[@]}"
+      filenames_only=()
+      for file in "${project_files[@]}"; do
+        filenames_only+=("$(basename "$file")")
+      done
+      echo "project_files: ${filenames_only[@]}"
     fi
 
   fi
@@ -1614,7 +1626,6 @@ do
         DETECT_OPTIONS="${DETECT_OPTIONS} --detect.binary.scan.file.path=${project_name}/${cl_name}/${fileNames[start_pos]}"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Code location: ${cl_name}"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Binary file: ${fileNames[start_pos]}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Full path: ${project_name}/${cl_name}/${fileNames[start_pos]}"
         
       elif [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚙️  CONTAINER_SCAN specific configuration:"
