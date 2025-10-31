@@ -215,6 +215,13 @@ generate_scan_command() {
             base_command+=" --blackduck.api.token='$API_TOKEN'"
             base_command+=" --detect.project.name='$project_name'"
             base_command+=" --detect.project.version.name='1.0'"
+
+            # Add snippet-specific parameters if this is a snippet scan
+            if [ "${SNIPPETS:-no}" == "yes" ]; then
+                base_command+=" --detect.blackduck.signature.scanner.snippet.matching=SNIPPET_MATCHING"
+                base_command+=" --detect.blackduck.signature.scanner.upload.source.mode=true"
+                log_debug "Snippet scan parameters added: snippet.matching=SNIPPET_MATCHING, upload.source.mode=true"
+            fi
             ;;
         BINARY_SCAN)
             # Get first binary file from scan directory (follow symlinks with -L)

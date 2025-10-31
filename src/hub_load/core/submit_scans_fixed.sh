@@ -1876,10 +1876,10 @@ do
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Remaining scans: $remaining"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Next scan will be: $(($scans + 1)) / $MAX_SCANS"
       else
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🏁 ALL SCANS COMPLETED - EXITING LOOP"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🏁 ALL SCANS COMPLETED - EXITING LOOP" 
       fi
     done
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔄 Completed inner loop for project batch"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔄 Completed inner loop for project batch" 
   done
   echo "$(date '+%Y-%m-%d %H:%M:%S') - 🧹 Cleaning up project directory: ${project_name}"
   rm -rf $project_name
