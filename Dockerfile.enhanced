@@ -1,0 +1,227 @@
+FROM ubuntu:22.04
+
+# Metadata
+LABEL maintainer="BlackDuck Performance Lab"
+LABEL description="Hub Load Testing with Memory Mapping Optimization"
+LABEL version="2.0-enhanced"
+
+# Set environment variables to avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+# Performance and optimization environment variables
+ENV USE_MEMORY_MAPPING=yes
+ENV MAX_PARALLEL_JOBS=3
+ENV PYTHONPATH=/app
+ENV JAVA_OPTS="-Xmx2g -XX:+UseG1GC"
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        # Core utilities
+        curl wget unzip rsync tree \
+        ca-certificates gnupg lsb-release apt-transport-https \
+        # Java runtime for Hub scans
+        openjdk-17-jre-headless \
+        # Python for memory mapping and utilities
+        python3 python3-pip python3-dev \
+        # File system and storage tools
+        fuse gcsfuse \
+        # Performance monitoring tools
+        htop iotop sysstat \
+        # Math libraries for performance calculations
+        bc \
+        # Git for repository operations
+        git \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Google Cloud SDK for GCS integration
+RUN mkdir -p /usr/share/keyrings && \
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+    gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | \
+    tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-cloud-cli && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python packages for memory mapping and performance monitoring
+RUN pip3 install --no-cache-dir \
+    psutil \
+    mmap \
+    requests \
+    google-cloud-storage
+
+# Create application directory structure
+RUN mkdir -p /app/src/hub_load/{core,memory_mapping,scripts,logs,config,docs} && \
+    mkdir -p /app/test-data && \
+    mkdir -p /app/logs && \
+    mkdir -p /mnt/gcs-data && \
+    mkdir -p /tmp/hub_load_temp
+
+# Copy application files with proper structure
+COPY src/hub_load/ /app/src/hub_load/
+COPY src/run_scans.bash /app/src/
+COPY src/hubload-latest.yaml /app/src/
+
+# Copy memory mapping validation and test scripts
+COPY validate_memory_mapping_ubuntu.sh /app/
+COPY test_enhanced_mmap.sh /app/
+COPY test_docker_memory_mapping.sh /app/
+COPY MEMORY_MAPPING_VALIDATION_REPORT.md /app/docs/
+
+# Verify memory mapping components are present and accessible
+RUN ls -la /app/src/hub_load/memory_mapping/ && \
+    echo "Memory mapping components verified:" && \
+    ls -la /app/src/hub_load/memory_mapping/*.py && \
+    echo "Python path configured for memory mapping imports"
+
+# Set up executable permissions
+RUN find /app -name "*.sh" -type f -exec chmod +x {} \; && \
+    find /app -name "*.py" -type f -exec chmod +x {} \; && \
+    chmod +x /app/src/run_scans.bash
+
+# Create non-root user for security
+RUN groupadd -r hubload && \
+    useradd -r -g hubload -d /app -s /bin/bash hubload && \
+    chown -R hubload:hubload /app && \
+    chown -R hubload:hubload /mnt/gcs-data && \
+    chown -R hubload:hubload /tmp/hub_load_temp
+
+# Set up FUSE permissions for GCS mounting
+RUN echo "user_allow_other" >> /etc/fuse.conf
+
+# Health check script with memory mapping verification
+RUN echo '#!/bin/bash\n\
+echo "=== Hub Load Container Health Check ==="\n\
+echo "Date: $(date)"\n\
+echo "Java: $(java -version 2>&1 | head -1)"\n\
+echo "Python: $(python3 --version)"\n\
+echo "Memory mapping available: $(python3 -c \"import mmap; print(\"Yes\")\" 2>/dev/null || echo \"No\")"\n\
+echo "Memory mapping handler: $(ls -la /app/src/hub_load/memory_mapping/mmap_file_handler.py > /dev/null 2>&1 && echo \"OK\" || echo \"MISSING\")"\n\
+echo "Memory mapping imports: $(cd /app && python3 -c \"from src.hub_load.memory_mapping.mmap_file_handler import MMapFileHandler; print(\"OK\")\" 2>/dev/null || echo \"FAILED\")"\n\
+echo "GCS tools: $(gcloud --version | head -1)"\n\
+echo "Available cores: $(nproc)"\n\
+echo "Available memory: $(free -h | grep \"Mem:\" | awk \"{print \\$2}\")"\n\
+echo "Disk space: $(df -h /tmp | tail -1 | awk \"{print \\$4}\")"\n\
+ls -la /app/src/hub_load/core/submit_scans_fixed.sh > /dev/null && echo "Main script: OK" || echo "Main script: MISSING"\n\
+echo "Container ready for hub load testing with memory mapping optimization!"\n\
+' > /app/healthcheck.sh && chmod +x /app/healthcheck.sh
+
+# Set working directory
+WORKDIR /app
+
+# Switch to non-root user
+USER hubload
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD /app/healthcheck.sh
+
+# Default environment for optimal performance
+ENV SCAN_COUNT=10
+ENV SCAN_TYPE=SIGNATURE_SCAN
+ENV SYNCHRONOUS_SCANS=yes
+ENV PARALLEL_SCANS=no
+ENV DEBUG=no
+ENV DRY_RUN=no
+ENV USE_MEMORY_MAPPING=yes
+ENV LOCAL_TEST_DATA_DIR=/app/test-data
+
+# Expose port for potential web interface or monitoring
+EXPOSE 8080
+
+# Entry point script for flexible container usage
+RUN echo '#!/bin/bash\n\
+echo "=== Hub Load Container Starting ==="\n\
+echo "Container version: Enhanced with Memory Mapping"\n\
+echo "Performance optimizations: Enabled (27.5% faster file access)"\n\
+echo "Memory mapping: $USE_MEMORY_MAPPING"\n\
+echo "Max parallel jobs: $MAX_PARALLEL_JOBS"\n\
+echo "Working directory: $(pwd)"\n\
+echo "Available data directories:"\n\
+ls -la /app/test-data/ 2>/dev/null | head -5 || echo "  No test data mounted"\n\
+ls -la /mnt/gcs-data/ 2>/dev/null | head -5 || echo "  No GCS data mounted"\n\
+echo ""\n\
+\n\
+# If no command specified, run interactive shell\n\
+if [ $# -eq 0 ]; then\n\
+    echo "No command specified. Available commands:"\n\
+    echo "  scan              - Run hub load scans"\n\
+    echo "  test-mmap         - Test memory mapping performance"\n\
+    echo "  test-docker-mmap  - Test Docker memory mapping integration"\n\
+    echo "  validate          - Validate memory mapping"\n\
+    echo "  shell             - Interactive shell"\n\
+    echo "  help              - Show detailed help"\n\
+    echo ""\n\
+    echo "Example: docker run -it hub-load:latest scan SCAN_COUNT=5"\n\
+    exec /bin/bash\n\
+fi\n\
+\n\
+# Handle different commands\n\
+case "$1" in\n\
+    "scan")\n\
+        shift\n\
+        echo "Starting hub load scans with optimizations..."\n\
+        cd /app/src/hub_load/core\n\
+        exec ./submit_scans_fixed.sh "$@"\n\
+        ;;\n\
+    "test-mmap")\n\
+        echo "Running memory mapping performance test..."\n\
+        exec /app/test_enhanced_mmap.sh\n\
+        ;;\n\
+    "test-docker-mmap")\n\
+        echo "Running Docker-specific memory mapping integration test..."\n\
+        exec /app/test_docker_memory_mapping.sh\n\
+        ;;\n\
+    "validate")\n\
+        echo "Running memory mapping validation..."\n\
+        exec /app/validate_memory_mapping_ubuntu.sh\n\
+        ;;\n\
+    "shell")\n\
+        echo "Starting interactive shell..."\n\
+        exec /bin/bash\n\
+        ;;\n\
+    "help")\n\
+        echo "Hub Load Container - Enhanced Performance Edition"\n\
+        echo ""\n\
+        echo "Available commands:"\n\
+        echo "  scan [options]     - Run hub load scans"\n\
+        echo "  test-mmap          - Test memory mapping performance"\n\
+        echo "  validate           - Validate memory mapping setup"\n\
+        echo "  shell              - Interactive shell"\n\
+        echo ""\n\
+        echo "Scan Options (can be passed as environment variables):"\n\
+        echo "  SCAN_COUNT=<num>           Number of scans to run"\n\
+        echo "  SCAN_TYPE=<type>           Type of scan (SIGNATURE_SCAN, etc.)"\n\
+        echo "  USE_MEMORY_MAPPING=<yes/no> Enable memory mapping (default: yes)"\n\
+        echo "  PARALLEL_SCANS=<yes/no>    Enable parallel execution"\n\
+        echo "  MAX_PARALLEL_JOBS=<num>    Max concurrent scans"\n\
+        echo "  DEBUG=<yes/no>             Enable debug logging"\n\
+        echo ""\n\
+        echo "Volume Mounts:"\n\
+        echo "  -v /path/to/data:/app/test-data       Local test data"\n\
+        echo "  -v /path/to/logs:/app/logs            Log output"\n\
+        echo "  -v /path/to/gcs:/mnt/gcs-data         GCS mounted data"\n\
+        echo ""\n\
+        echo "Examples:"\n\
+        echo "  docker run -e SCAN_COUNT=5 hub-load:latest scan"\n\
+        echo "  docker run -v /data:/app/test-data hub-load:latest scan"\n\
+        echo "  docker run -it hub-load:latest shell"\n\
+        ;;\n\
+    *)\n\
+        echo "Unknown command: $1"\n\
+        echo "Use '\''help'\'' for available commands"\n\
+        exit 1\n\
+        ;;\n\
+esac\n\
+' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Set the entry point
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Default command
+CMD ["help"]

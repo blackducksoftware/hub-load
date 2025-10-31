@@ -1,0 +1,256 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hub-load-test-job
+  namespace: hub-load-testing
+  labels:
+    app: hub-load
+    type: test-job
+    version: enhanced
+spec:
+  # Job configuration
+  backoffLimit: 3
+  activeDeadlineSeconds: 3600  # 1 hour timeout
+  completions: 1
+  parallelism: 1
+  
+  template:
+    metadata:
+      labels:
+        app: hub-load
+        type: test-job
+        version: enhanced
+      annotations:
+        performance.memory-mapping: "enabled"
+        test.scenario: "single-run"
+    spec:
+      restartPolicy: Never
+      
+      containers:
+      - name: hub-load-test
+        image: hub-load:enhanced
+        imagePullPolicy: IfNotPresent
+        
+        # Override default command to run specific test
+        command: ["/app/entrypoint.sh"]
+        args: ["scan"]
+        
+        # Resource allocation for test job
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "6Gi"
+            cpu: "3"
+        
+        # Environment variables optimized for testing
+        env:
+        - name: USE_MEMORY_MAPPING
+          value: "yes"
+        - name: SCAN_COUNT
+          value: "25"  # Higher count for thorough testing
+        - name: PARALLEL_SCANS
+          value: "yes"
+        - name: MAX_PARALLEL_JOBS
+          value: "3"
+        - name: DEBUG
+          value: "yes"
+        - name: LOCAL_TEST_DATA_DIR
+          value: "/app/nfs-data"
+        - name: HUB_URL
+          valueFrom:
+            configMapKeyRef:
+              name: hub-load-config
+              key: HUB_URL
+        - name: HUB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: HUB_USERNAME
+        - name: HUB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: HUB_PASSWORD
+        
+        # Volume mounts
+        volumeMounts:
+        - name: nfs-data
+          mountPath: /app/nfs-data
+          readOnly: true
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: tmp-volume
+          mountPath: /tmp/hub_load_temp
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+      
+      # Volumes (same as deployment)
+      volumes:
+      - name: nfs-data
+        persistentVolumeClaim:
+          claimName: hub-load-nfs-pvc
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: 5Gi
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 2Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hub-load-performance-test
+  namespace: hub-load-testing
+  labels:
+    app: hub-load
+    type: performance-test
+    version: enhanced
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 1800  # 30 minutes
+  completions: 1
+  parallelism: 1
+  
+  template:
+    metadata:
+      labels:
+        app: hub-load
+        type: performance-test
+      annotations:
+        test.type: "memory-mapping-validation"
+    spec:
+      restartPolicy: Never
+      
+      containers:
+      - name: hub-load-perf-test
+        image: hub-load:enhanced
+        imagePullPolicy: IfNotPresent
+        
+        # Run performance validation
+        command: ["/app/entrypoint.sh"]
+        args: ["test-docker-mmap"]
+        
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "0.5"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        
+        env:
+        - name: USE_MEMORY_MAPPING
+          value: "yes"
+        - name: LOCAL_TEST_DATA_DIR
+          value: "/app/nfs-data"
+        
+        volumeMounts:
+        - name: nfs-data
+          mountPath: /app/nfs-data
+          readOnly: true
+        - name: logs-volume
+          mountPath: /app/logs
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+      
+      volumes:
+      - name: nfs-data
+        persistentVolumeClaim:
+          claimName: hub-load-nfs-pvc
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: 2Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hub-load-scheduled-test
+  namespace: hub-load-testing
+  labels:
+    app: hub-load
+    type: scheduled-test
+spec:
+  # Run every day at 2 AM
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200  # 2 hours
+      template:
+        metadata:
+          labels:
+            app: hub-load
+            type: scheduled-test
+        spec:
+          restartPolicy: Never
+          
+          containers:
+          - name: hub-load-scheduled
+            image: hub-load:enhanced
+            imagePullPolicy: IfNotPresent
+            
+            command: ["/app/entrypoint.sh"]
+            args: ["scan"]
+            
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2"
+              limits:
+                memory: "8Gi"
+                cpu: "4"
+            
+            env:
+            - name: USE_MEMORY_MAPPING
+              value: "yes"
+            - name: SCAN_COUNT
+              value: "50"  # Comprehensive nightly test
+            - name: PARALLEL_SCANS
+              value: "yes"
+            - name: MAX_PARALLEL_JOBS
+              value: "5"
+            - name: LOCAL_TEST_DATA_DIR
+              value: "/app/nfs-data"
+            - name: HUB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: hub-load-config
+                  key: HUB_URL
+            - name: HUB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: hub-load-secrets
+                  key: HUB_USERNAME
+            - name: HUB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hub-load-secrets
+                  key: HUB_PASSWORD
+            
+            volumeMounts:
+            - name: nfs-data
+              mountPath: /app/nfs-data
+              readOnly: true
+            - name: logs-volume
+              mountPath: /app/logs
+            
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1001
+          
+          volumes:
+          - name: nfs-data
+            persistentVolumeClaim:
+              claimName: hub-load-nfs-pvc
+          - name: logs-volume
+            emptyDir:
+              sizeLimit: 10Gi

@@ -1,0 +1,225 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hub-load-testing
+  labels:
+    app: hub-load
+    version: enhanced
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: hub-load-nfs-pv
+  namespace: hub-load-testing
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-storage
+  nfs:
+    # Configure your NFS server details
+    server: your-nfs-server.domain.com  # Replace with your NFS server
+    path: /netapp/eng/perflab/SCA_DATA/SCASS  # Your validated 2TB dataset path
+  mountOptions:
+    - nfsvers=4.1
+    - rsize=8192
+    - wsize=8192
+    - hard
+    - intr
+    - timeo=14
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hub-load-nfs-pvc
+  namespace: hub-load-testing
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 2Ti
+  storageClassName: nfs-storage
+  volumeName: hub-load-nfs-pv
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-load-config
+  namespace: hub-load-testing
+data:
+  # Performance optimizations (validated)
+  USE_MEMORY_MAPPING: "yes"
+  MAX_PARALLEL_JOBS: "3"
+  PARALLEL_SCANS: "no"
+  
+  # Default scan configuration
+  SCAN_COUNT: "10"
+  SCAN_TYPE: "SIGNATURE_SCAN"
+  SYNCHRONOUS_SCANS: "yes"
+  DEBUG: "no"
+  DRY_RUN: "no"
+  
+  # Data paths
+  LOCAL_TEST_DATA_DIR: "/app/nfs-data"
+  
+  # Hub connection settings (customize for your environment)
+  HUB_URL: "https://your-hub-server.domain.com"
+  # HUB_USERNAME and HUB_PASSWORD should be in secrets
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hub-load-secrets
+  namespace: hub-load-testing
+type: Opaque
+data:
+  # Base64 encoded values (replace with your actual credentials)
+  # echo -n "your-username" | base64
+  HUB_USERNAME: eW91ci11c2VybmFtZQ==
+  # echo -n "your-password" | base64  
+  HUB_PASSWORD: eW91ci1wYXNzd29yZA==
+  # echo -n "your-api-token" | base64
+  HUB_API_TOKEN: eW91ci1hcGktdG9rZW4=
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub-load-deployment
+  namespace: hub-load-testing
+  labels:
+    app: hub-load
+    version: enhanced
+spec:
+  replicas: 1  # Start with 1, scale as needed
+  selector:
+    matchLabels:
+      app: hub-load
+      version: enhanced
+  template:
+    metadata:
+      labels:
+        app: hub-load
+        version: enhanced
+      annotations:
+        # Performance annotations
+        performance.memory-mapping: "enabled-27.5-percent-improvement"
+        data.nfs-size: "2TB"
+        data.files-count: "8919"
+    spec:
+      containers:
+      - name: hub-load
+        image: hub-load:enhanced  # Your Docker image
+        imagePullPolicy: IfNotPresent
+        
+        # Resource requests and limits for optimal performance
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi" 
+            cpu: "4"
+        
+        # Environment variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: hub-load-config
+        
+        # Sensitive environment variables from Secret
+        env:
+        - name: HUB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: HUB_USERNAME
+        - name: HUB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: HUB_PASSWORD
+        - name: HUB_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hub-load-secrets
+              key: HUB_API_TOKEN
+        
+        # Volume mounts
+        volumeMounts:
+        - name: nfs-data
+          mountPath: /app/nfs-data
+          readOnly: true
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: tmp-volume
+          mountPath: /tmp/hub_load_temp
+        
+        # Health checks
+        livenessProbe:
+          exec:
+            command:
+            - /app/healthcheck.sh
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "ls /app/nfs-data > /dev/null && python3 -c 'from src.hub_load.memory_mapping.mmap_file_handler import MMapFileHandler'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 2
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      
+      # Volumes
+      volumes:
+      - name: nfs-data
+        persistentVolumeClaim:
+          claimName: hub-load-nfs-pvc
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 5Gi
+      
+      # Pod scheduling preferences
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - compute-optimized
+          - weight: 50
+            preference:
+              matchExpressions:
+              - key: storage-type
+                operator: In
+                values:
+                - ssd
+      
+      # Restart policy
+      restartPolicy: Always
+      
+      # DNS policy for NFS access
+      dnsPolicy: ClusterFirst

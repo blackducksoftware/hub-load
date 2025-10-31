@@ -1,0 +1,154 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-load-monitoring-config
+  namespace: hub-load-testing
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    
+    scrape_configs:
+      - job_name: 'hub-load-pods'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - hub-load-testing
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: hub-load
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+):(?:\d+);(\d+)
+            replacement: ${1}:${2}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hub-load-metrics
+  namespace: hub-load-testing
+  labels:
+    app: hub-load-metrics
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: hub-load
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: hub-load-log-collector
+  namespace: hub-load-testing
+  labels:
+    app: hub-load-log-collector
+spec:
+  selector:
+    matchLabels:
+      app: hub-load-log-collector
+  template:
+    metadata:
+      labels:
+        app: hub-load-log-collector
+    spec:
+      serviceAccountName: hub-load-sa
+      containers:
+      - name: log-collector
+        image: fluent/fluent-bit:latest
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        env:
+        - name: FLUENT_CONF
+          value: fluent-bit.conf
+        - name: FLUENT_OPT
+          value: ""
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: hub-load-testing
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/hub-load*.log
+        Parser            docker
+        Tag               hub-load.*
+        Refresh_Interval  5
+        Skip_Long_Lines   On
+
+    [FILTER]
+        Name                kubernetes
+        Match               hub-load.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     hub-load.var.log.containers.
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    [OUTPUT]
+        Name  stdout
+        Match *
+        Format json
+        
+  parsers.conf: |
+    [PARSER]
+        Name   docker
+        Format json
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On

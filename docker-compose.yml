@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  hub-load:
+    build:
+      context: .
+      dockerfile: Dockerfile.enhanced
+    image: hub-load:enhanced
+    container_name: hub-load-performance
+    
+    # Environment configuration
+    environment:
+      # Performance optimizations (validated results)
+      - USE_MEMORY_MAPPING=yes
+      - MAX_PARALLEL_JOBS=3
+      - PARALLEL_SCANS=no
+      
+      # Scan configuration
+      - SCAN_COUNT=10
+      - SCAN_TYPE=SIGNATURE_SCAN
+      - SYNCHRONOUS_SCANS=yes
+      - DEBUG=no
+      - DRY_RUN=no
+      
+      # Hub connection (customize for your environment)
+      - HUB_URL=${HUB_URL:-https://your-hub-server}
+      - HUB_USERNAME=${HUB_USERNAME}
+      - HUB_PASSWORD=${HUB_PASSWORD}
+      - HUB_API_TOKEN=${HUB_API_TOKEN}
+      
+      # GCS configuration (optional)
+      - USE_GCS=no
+      - GCS_BUCKET=${GCS_BUCKET}
+      - GCS_PREFIX=${GCS_PREFIX}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/gcp-service-account.json
+    
+    # Volume mounts
+    volumes:
+      # NFS data (2TB dataset) - Configure NFS details below in volumes section
+      - nfs-hub-data:/app/nfs-data:ro
+      
+      # Local test data (fallback)
+      - ${LOCAL_TEST_DATA_DIR:-./test-data}:/app/test-data:ro
+      
+      # Logs output
+      - ${LOG_OUTPUT_DIR:-./logs}:/app/logs
+      
+      # Configuration files
+      - ${CONFIG_DIR:-./config}:/app/config:ro
+      
+      # GCS mounted data (if using GCS)
+      # - /mnt/gcs-data:/mnt/gcs-data:shared
+      
+      # Hub load temporary files
+      - hub-load-temp:/tmp/hub_load_temp
+    
+    # Privileged mode for FUSE/GCS mounting if needed
+    # privileged: true
+    
+    # Security context
+    security_opt:
+      - apparmor:unconfined  # Needed for FUSE if using GCS
+    
+    # Resource limits for optimal performance
+    deploy:
+      resources:
+        limits:
+          # Adjust based on your system
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    
+    # Networking
+    ports:
+      - "8080:8080"  # For potential monitoring interface
+    
+    # Health check
+    healthcheck:
+      test: ["/app/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Optional: Monitoring container
+  hub-load-monitor:
+    image: prom/node-exporter:latest
+    container_name: hub-load-monitor
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    profiles:
+      - monitoring
+
+volumes:
+  hub-load-temp:
+    driver: local
