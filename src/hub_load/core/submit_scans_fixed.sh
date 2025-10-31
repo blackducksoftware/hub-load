@@ -632,15 +632,11 @@ declare -A parallel_jobs  # Track running parallel jobs: PID->scan_info
 declare -a parallel_job_queue  # Queue for parallel jobs
 
 # Function to manage parallel job execution
-manage_parallel_jobs() {
-  local max_jobs=${MAX_PARALLEL_JOBS:-3}
-  local running_jobs=0
-  
-  # Count currently running jobs and extract summaries from completed ones
+# Function to clean up completed parallel jobs and extract their summaries  
+cleanup_completed_parallel_jobs() {
+  # Process completed jobs and extract summaries
   for pid in "${!parallel_jobs[@]}"; do
-    if kill -0 "$pid" 2>/dev/null; then
-      ((running_jobs++))
-    else
+    if ! kill -0 "$pid" 2>/dev/null; then
       # Job finished, clean up and extract scan summary
       local job_info="${parallel_jobs[$pid]}"
       echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Parallel scan completed: $job_info"
@@ -672,8 +668,31 @@ manage_parallel_jobs() {
       unset parallel_jobs[$pid]
     fi
   done
+}
+
+# Function to count currently running parallel jobs (numeric only)
+manage_parallel_jobs() {
+  local max_jobs=${MAX_PARALLEL_JOBS:-3}
+  local running_jobs=0
+  
+  # First clean up completed jobs
+  cleanup_completed_parallel_jobs
+  
+  # Count currently running jobs
+  for pid in "${!parallel_jobs[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      ((running_jobs++))
+    fi
+  done
   
   echo "$running_jobs"
+}
+
+# Function to display parallel job status with completion messages
+display_parallel_job_status() {
+  local running_count=$(manage_parallel_jobs)
+  local max_jobs=${MAX_PARALLEL_JOBS:-3}
+  echo "${running_count} / ${max_jobs}"
 }
 
 # Function to wait for parallel job slots
@@ -1762,7 +1781,7 @@ do
         fi
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Project: $project_name"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Queued: $((scans + 1)) / $MAX_SCANS scans"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Running parallel jobs: $(manage_parallel_jobs)"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Running parallel jobs: $(display_parallel_job_status)"
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Execution mode: PARALLEL (background)"
         
         # Clean up log file reference for parallel mode
