@@ -289,6 +289,10 @@ check_scan_type_has_files() {
                 file_count=$(find "$local_dir" \( -name "*.jar" -o -name "*.zip" \) -type f 2>/dev/null | wc -l)
             fi
             ;;
+        "SNIPPET_SCAN")
+            # Snippet scans use tar.gz files
+            file_count=$(find "$local_dir" -name "*.tar.gz" -type f 2>/dev/null | wc -l)
+            ;;
         "BINARY_SCAN")
             file_count=$(find "$local_dir" \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.lib" -o -name "*.rpm" -o -name "*.deb" -o -name "*.msi" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) -type f 2>/dev/null | wc -l)
             ;;

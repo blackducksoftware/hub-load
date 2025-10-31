@@ -1,0 +1,854 @@
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-signature_scan_small-1761952339-96779 --detect.project.version.name=1.0
+2025-10-31 17:12:20 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:12:21 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:12:21 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:12:21 MDT INFO  [main] --- 
+2025-10-31 17:12:21 MDT INFO  [main] --- Current property values:
+2025-10-31 17:12:21 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:12:21 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:12:21 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:12:21 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:12:21 MDT INFO  [main] --- detect.project.name = enhanced-signature_scan_small-1761952339-96779 [cmd] 
+2025-10-31 17:12:21 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:12:21 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:12:21 MDT INFO  [main] --- 
+2025-10-31 17:12:21 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:12:21 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_1_96779
+2025-10-31 17:12:21 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:12:21 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-12-21-849
+2025-10-31 17:12:21 MDT INFO  [main] --- 
+2025-10-31 17:12:25 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:12:26 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:26 MDT INFO  [main] --- Will include the Docker tool.
+2025-10-31 17:12:26 MDT INFO  [main] --- Docker actions finished.
+2025-10-31 17:12:26 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:26 MDT INFO  [main] --- Will include the Bazel tool.
+2025-10-31 17:12:26 MDT INFO  [main] --- Bazel actions finished.
+2025-10-31 17:12:26 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:26 MDT INFO  [main] --- Will include the Detectors tool.
+2025-10-31 17:12:26 MDT INFO  [main] --- Searching for detectors.
+2025-10-31 17:12:26 MDT INFO  [main] --- Evaluating detectors. This may take a while.
+2025-10-31 17:12:26 MDT INFO  [main] --- ======================================================================================================
+2025-10-31 17:12:26 MDT INFO  [main] --- Detector Report
+2025-10-31 17:12:26 MDT INFO  [main] --- ======================================================================================================
+2025-10-31 17:12:26 MDT INFO  [main] --- No detectors found.
+2025-10-31 17:12:26 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:26 MDT INFO  [main] --- Detectors actions finished.
+2025-10-31 17:12:26 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:26 MDT INFO  [main] --- Project name: enhanced-signature_scan_small-1761952339-96779
+2025-10-31 17:12:26 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:12:26 MDT INFO  [main] --- The enhanced-signature_scan_small-1761952339-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:12:34 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:34 MDT INFO  [main] --- Will include the Signature Scanner tool.
+2025-10-31 17:12:35 MDT INFO  [main] --- The Black Duck Signature Scanner downloaded/found successfully: /Users/karth/blackduck/tools
+2025-10-31 17:12:35 MDT INFO  [main] --- No scan targets provided - registering the source path /private/tmp/scan_scan_1_96779 to scan
+2025-10-31 17:12:36 MDT INFO  [main] --- Starting the Black Duck Signature Scan commands.
+2025-10-31 17:12:36 MDT INFO  [pool-3-thread-1] --- Black Duck CLI command: /Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/jre/Contents/Home/bin/java -Done-jar.silent=true -Done-jar.jar.path=/Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/lib/cache/scan.cli.impl-standalone.jar -Xmx4096m -jar /Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/lib/scan.cli-1.0.6-standalone.jar --no-prompt --scheme https --host rg-250sph-2025-7-1.saas-staging.blackduck.com --port 443 -v --logDir /Users/karth/blackduck/runs/2025-10-31-23-12-21-849/scan/BlackDuckScanOutput/2025-10-31_23-12-36-608_1 --statusWriteDir /Users/karth/blackduck/runs/2025-10-31-23-12-21-849/scan/BlackDuckScanOutput/2025-10-31_23-12-36-608_1 --project enhanced-signature_scan_small-1761952339-96779 --release 1.0 --name scan_scan_1_96779/enhanced-signature_scan_small-1761952339-96779/1.0 signature --scass-scan /private/tmp/scan_scan_1_96779
+2025-10-31 17:12:41 MDT INFO  [pool-3-thread-1] --- 
+2025-10-31 17:12:41 MDT INFO  [pool-3-thread-1] --- Black Duck Signature Scanner return code: 0
+2025-10-31 17:12:41 MDT INFO  [pool-3-thread-1] --- Signature Scanner log output directory: '/Users/karth/blackduck/runs/2025-10-31-23-12-21-849/scan/BlackDuckScanOutput/2025-10-31_23-12-36-608_1'
+2025-10-31 17:12:41 MDT INFO  [main] --- Completed the Black Duck Signature Scan commands.
+2025-10-31 17:12:42 MDT INFO  [main] --- Signature Scanner actions finished.
+2025-10-31 17:12:42 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:42 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:12:42 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:12:42 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:12:42 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:42 MDT INFO  [main] --- Will include the Container Scanner tool.
+2025-10-31 17:12:42 MDT INFO  [main] --- No detect.container.scan.file.path property was provided. Skipping container scan.
+2025-10-31 17:12:42 MDT INFO  [main] --- Container Scanner actions finished.
+2025-10-31 17:12:42 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:42 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:12:42 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:42 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:12:42 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:42 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-12-21-849/status/status.json
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:12:43 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-12-21-849
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/96a72132-1aac-40de-b4e6-ec8af3510e6b/versions/097b939c-b003-4104-a6bc-8fe3112a2322/components
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- Signature scan / Snippet scan on /private/tmp/scan_scan_1_96779: SUCCESS
+2025-10-31 17:12:43 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- ===============================
+2025-10-31 17:12:43 MDT INFO  [main] --- 
+2025-10-31 17:12:43 MDT INFO  [main] --- Detect duration: 00h 00m 23s 069ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-container_scan_large-1761952364-96779 --detect.project.version.name=1.0 --detect.tools=CONTAINER_SCAN
+2025-10-31 17:12:45 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:12:46 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:12:46 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:12:46 MDT INFO  [main] --- 
+2025-10-31 17:12:46 MDT INFO  [main] --- Current property values:
+2025-10-31 17:12:46 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:12:46 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:12:46 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:12:46 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:12:46 MDT INFO  [main] --- detect.project.name = enhanced-container_scan_large-1761952364-96779 [cmd] 
+2025-10-31 17:12:46 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:12:46 MDT INFO  [main] --- detect.tools = CONTAINER_SCAN [cmd] 
+2025-10-31 17:12:46 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:12:46 MDT INFO  [main] --- 
+2025-10-31 17:12:46 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:12:46 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_2_96779
+2025-10-31 17:12:46 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:12:46 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-12-46-459
+2025-10-31 17:12:46 MDT INFO  [main] --- 
+2025-10-31 17:12:49 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:12:49 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:49 MDT INFO  [main] --- Docker tool will not be run.
+2025-10-31 17:12:49 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:49 MDT INFO  [main] --- Bazel tool will not be run.
+2025-10-31 17:12:49 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:49 MDT INFO  [main] --- Detectors tool will not be run.
+2025-10-31 17:12:49 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:49 MDT INFO  [main] --- Project name: enhanced-container_scan_large-1761952364-96779
+2025-10-31 17:12:49 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:12:50 MDT INFO  [main] --- The enhanced-container_scan_large-1761952364-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:12:57 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:57 MDT INFO  [main] --- Signature Scanner tool will not be run.
+2025-10-31 17:12:57 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:57 MDT INFO  [main] --- Binary Scanner tool will not be run.
+2025-10-31 17:12:57 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:57 MDT INFO  [main] --- Will include the Container Scanner tool.
+2025-10-31 17:12:57 MDT INFO  [main] --- No detect.container.scan.file.path property was provided. Skipping container scan.
+2025-10-31 17:12:57 MDT INFO  [main] --- Container Scanner actions finished.
+2025-10-31 17:12:57 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:57 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:12:57 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:57 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:12:57 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:12:57 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:12:57 MDT INFO  [main] --- 
+2025-10-31 17:12:57 MDT INFO  [main] --- 
+2025-10-31 17:12:57 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-12-46-459/status/status.json
+2025-10-31 17:12:57 MDT INFO  [main] --- 
+2025-10-31 17:12:57 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:12:57 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-12-46-459
+2025-10-31 17:12:58 MDT INFO  [main] --- 
+2025-10-31 17:12:58 MDT INFO  [main] --- 
+2025-10-31 17:12:58 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:12:58 MDT INFO  [main] --- 
+2025-10-31 17:12:58 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/091f7ba0-b42a-436e-baf6-fc5a8ab5ea23/versions/7a45bfd5-1805-44da-9142-799794266901/components
+2025-10-31 17:12:58 MDT INFO  [main] --- 
+2025-10-31 17:12:58 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:12:58 MDT INFO  [main] --- 
+2025-10-31 17:12:58 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:12:58 MDT INFO  [main] --- 
+2025-10-31 17:12:58 MDT INFO  [main] --- ===============================
+2025-10-31 17:12:58 MDT INFO  [main] --- 
+2025-10-31 17:12:58 MDT INFO  [main] --- Detect duration: 00h 00m 12s 600ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-binary_scan_small-1761952378-96779 --detect.project.version.name=1.0 --detect.tools=BINARY_SCAN
+2025-10-31 17:12:59 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:13:00 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:13:00 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:13:00 MDT INFO  [main] --- 
+2025-10-31 17:13:00 MDT INFO  [main] --- Current property values:
+2025-10-31 17:13:00 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:13:00 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:00 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:13:00 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:13:00 MDT INFO  [main] --- detect.project.name = enhanced-binary_scan_small-1761952378-96779 [cmd] 
+2025-10-31 17:13:00 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:13:00 MDT INFO  [main] --- detect.tools = BINARY_SCAN [cmd] 
+2025-10-31 17:13:00 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:00 MDT INFO  [main] --- 
+2025-10-31 17:13:00 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:13:00 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_3_96779
+2025-10-31 17:13:00 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:13:00 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-13-00-518
+2025-10-31 17:13:00 MDT INFO  [main] --- 
+2025-10-31 17:13:03 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:13:04 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:04 MDT INFO  [main] --- Docker tool will not be run.
+2025-10-31 17:13:04 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:04 MDT INFO  [main] --- Bazel tool will not be run.
+2025-10-31 17:13:04 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:04 MDT INFO  [main] --- Detectors tool will not be run.
+2025-10-31 17:13:04 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:04 MDT INFO  [main] --- Project name: enhanced-binary_scan_small-1761952378-96779
+2025-10-31 17:13:04 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:13:04 MDT INFO  [main] --- The enhanced-binary_scan_small-1761952378-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:13:10 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:10 MDT INFO  [main] --- Signature Scanner tool will not be run.
+2025-10-31 17:13:10 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:10 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:13:10 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:13:10 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:13:10 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:10 MDT INFO  [main] --- Container Scanner tool will not be run.
+2025-10-31 17:13:10 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:10 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:13:10 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:10 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:13:10 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:10 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-13-00-518/status/status.json
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:13:11 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-13-00-518
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/ae5d2432-ced1-4ecf-ad73-9c5dc7c8a16b/versions/d896f76a-30db-4726-b4cc-7cd3f1eed7b3/components
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- ===============================
+2025-10-31 17:13:11 MDT INFO  [main] --- 
+2025-10-31 17:13:11 MDT INFO  [main] --- Detect duration: 00h 00m 12s 118ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-binary_scan_medium-1761952392-96779 --detect.project.version.name=1.0 --detect.tools=BINARY_SCAN
+2025-10-31 17:13:13 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:13:14 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:13:14 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:13:14 MDT INFO  [main] --- 
+2025-10-31 17:13:14 MDT INFO  [main] --- Current property values:
+2025-10-31 17:13:14 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:13:14 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:14 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:13:14 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:13:14 MDT INFO  [main] --- detect.project.name = enhanced-binary_scan_medium-1761952392-96779 [cmd] 
+2025-10-31 17:13:14 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:13:14 MDT INFO  [main] --- detect.tools = BINARY_SCAN [cmd] 
+2025-10-31 17:13:14 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:14 MDT INFO  [main] --- 
+2025-10-31 17:13:14 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:13:14 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_4_96779
+2025-10-31 17:13:14 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:13:14 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-13-14-334
+2025-10-31 17:13:14 MDT INFO  [main] --- 
+2025-10-31 17:13:17 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:13:17 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:17 MDT INFO  [main] --- Docker tool will not be run.
+2025-10-31 17:13:17 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:17 MDT INFO  [main] --- Bazel tool will not be run.
+2025-10-31 17:13:17 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:17 MDT INFO  [main] --- Detectors tool will not be run.
+2025-10-31 17:13:17 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:17 MDT INFO  [main] --- Project name: enhanced-binary_scan_medium-1761952392-96779
+2025-10-31 17:13:17 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:13:18 MDT INFO  [main] --- The enhanced-binary_scan_medium-1761952392-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:13:24 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:24 MDT INFO  [main] --- Signature Scanner tool will not be run.
+2025-10-31 17:13:24 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:24 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:13:24 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:13:24 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:13:24 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:24 MDT INFO  [main] --- Container Scanner tool will not be run.
+2025-10-31 17:13:24 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:24 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:13:24 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:24 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:13:24 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:24 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:13:24 MDT INFO  [main] --- 
+2025-10-31 17:13:24 MDT INFO  [main] --- 
+2025-10-31 17:13:24 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-13-14-334/status/status.json
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:13:25 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-13-14-334
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/98d7088a-0367-439a-af0f-e014ce9c0b61/versions/071d6acb-c011-46fa-9344-853505b1303b/components
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- ===============================
+2025-10-31 17:13:25 MDT INFO  [main] --- 
+2025-10-31 17:13:25 MDT INFO  [main] --- Detect duration: 00h 00m 11s 683ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-binary_scan_small-1761952405-96779 --detect.project.version.name=1.0 --detect.tools=BINARY_SCAN
+2025-10-31 17:13:26 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:13:27 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:13:27 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:13:27 MDT INFO  [main] --- 
+2025-10-31 17:13:27 MDT INFO  [main] --- Current property values:
+2025-10-31 17:13:27 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:13:27 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:27 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:13:27 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:13:27 MDT INFO  [main] --- detect.project.name = enhanced-binary_scan_small-1761952405-96779 [cmd] 
+2025-10-31 17:13:27 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:13:27 MDT INFO  [main] --- detect.tools = BINARY_SCAN [cmd] 
+2025-10-31 17:13:27 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:27 MDT INFO  [main] --- 
+2025-10-31 17:13:27 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:13:27 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_5_96779
+2025-10-31 17:13:27 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:13:27 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-13-27-670
+2025-10-31 17:13:27 MDT INFO  [main] --- 
+2025-10-31 17:13:30 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:13:31 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:31 MDT INFO  [main] --- Docker tool will not be run.
+2025-10-31 17:13:31 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:31 MDT INFO  [main] --- Bazel tool will not be run.
+2025-10-31 17:13:31 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:31 MDT INFO  [main] --- Detectors tool will not be run.
+2025-10-31 17:13:31 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:31 MDT INFO  [main] --- Project name: enhanced-binary_scan_small-1761952405-96779
+2025-10-31 17:13:31 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:13:32 MDT INFO  [main] --- The enhanced-binary_scan_small-1761952405-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:13:37 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:37 MDT INFO  [main] --- Signature Scanner tool will not be run.
+2025-10-31 17:13:37 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:37 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:13:37 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:13:37 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:13:37 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:37 MDT INFO  [main] --- Container Scanner tool will not be run.
+2025-10-31 17:13:37 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:37 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:13:37 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:37 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:13:37 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:37 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-13-27-670/status/status.json
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:13:38 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-13-27-670
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/f6b4122c-f34f-4906-92b8-6aaecd2a3e5c/versions/ccb7e7b7-6e92-4ba8-831b-291d1e1b9042/components
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- ===============================
+2025-10-31 17:13:38 MDT INFO  [main] --- 
+2025-10-31 17:13:38 MDT INFO  [main] --- Detect duration: 00h 00m 11s 704ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-signature_scan_medium-1761952418-96779 --detect.project.version.name=1.0
+2025-10-31 17:13:40 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:13:40 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:13:41 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:13:41 MDT INFO  [main] --- 
+2025-10-31 17:13:41 MDT INFO  [main] --- Current property values:
+2025-10-31 17:13:41 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:13:41 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:41 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:13:41 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:13:41 MDT INFO  [main] --- detect.project.name = enhanced-signature_scan_medium-1761952418-96779 [cmd] 
+2025-10-31 17:13:41 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:13:41 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:13:41 MDT INFO  [main] --- 
+2025-10-31 17:13:41 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:13:41 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_6_96779
+2025-10-31 17:13:41 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:13:41 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-13-41-125
+2025-10-31 17:13:41 MDT INFO  [main] --- 
+2025-10-31 17:13:43 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:13:44 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:44 MDT INFO  [main] --- Will include the Docker tool.
+2025-10-31 17:13:44 MDT INFO  [main] --- Docker actions finished.
+2025-10-31 17:13:44 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:44 MDT INFO  [main] --- Will include the Bazel tool.
+2025-10-31 17:13:44 MDT INFO  [main] --- Bazel actions finished.
+2025-10-31 17:13:44 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:44 MDT INFO  [main] --- Will include the Detectors tool.
+2025-10-31 17:13:44 MDT INFO  [main] --- Searching for detectors.
+2025-10-31 17:13:44 MDT INFO  [main] --- Evaluating detectors. This may take a while.
+2025-10-31 17:13:44 MDT INFO  [main] --- ======================================================================================================
+2025-10-31 17:13:44 MDT INFO  [main] --- Detector Report
+2025-10-31 17:13:44 MDT INFO  [main] --- ======================================================================================================
+2025-10-31 17:13:44 MDT INFO  [main] --- No detectors found.
+2025-10-31 17:13:44 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:44 MDT INFO  [main] --- Detectors actions finished.
+2025-10-31 17:13:44 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:44 MDT INFO  [main] --- Project name: enhanced-signature_scan_medium-1761952418-96779
+2025-10-31 17:13:44 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:13:45 MDT INFO  [main] --- The enhanced-signature_scan_medium-1761952418-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:13:51 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:51 MDT INFO  [main] --- Will include the Signature Scanner tool.
+2025-10-31 17:13:53 MDT INFO  [main] --- The Black Duck Signature Scanner downloaded/found successfully: /Users/karth/blackduck/tools
+2025-10-31 17:13:53 MDT INFO  [main] --- No scan targets provided - registering the source path /private/tmp/scan_scan_6_96779 to scan
+2025-10-31 17:13:54 MDT INFO  [main] --- Starting the Black Duck Signature Scan commands.
+2025-10-31 17:13:54 MDT INFO  [pool-3-thread-1] --- Black Duck CLI command: /Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/jre/Contents/Home/bin/java -Done-jar.silent=true -Done-jar.jar.path=/Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/lib/cache/scan.cli.impl-standalone.jar -Xmx4096m -jar /Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/lib/scan.cli-1.0.6-standalone.jar --no-prompt --scheme https --host rg-250sph-2025-7-1.saas-staging.blackduck.com --port 443 -v --logDir /Users/karth/blackduck/runs/2025-10-31-23-13-41-125/scan/BlackDuckScanOutput/2025-10-31_23-13-54-253_1 --statusWriteDir /Users/karth/blackduck/runs/2025-10-31-23-13-41-125/scan/BlackDuckScanOutput/2025-10-31_23-13-54-253_1 --project enhanced-signature_scan_medium-1761952418-96779 --release 1.0 --name scan_scan_6_96779/enhanced-signature_scan_medium-1761952418-96779/1.0 signature --scass-scan /private/tmp/scan_scan_6_96779
+2025-10-31 17:13:58 MDT INFO  [pool-3-thread-1] --- 
+2025-10-31 17:13:58 MDT INFO  [pool-3-thread-1] --- Black Duck Signature Scanner return code: 0
+2025-10-31 17:13:58 MDT INFO  [pool-3-thread-1] --- Signature Scanner log output directory: '/Users/karth/blackduck/runs/2025-10-31-23-13-41-125/scan/BlackDuckScanOutput/2025-10-31_23-13-54-253_1'
+2025-10-31 17:13:58 MDT INFO  [main] --- Completed the Black Duck Signature Scan commands.
+2025-10-31 17:13:59 MDT INFO  [main] --- Signature Scanner actions finished.
+2025-10-31 17:13:59 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:59 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:13:59 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:13:59 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:13:59 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:59 MDT INFO  [main] --- Will include the Container Scanner tool.
+2025-10-31 17:13:59 MDT INFO  [main] --- No detect.container.scan.file.path property was provided. Skipping container scan.
+2025-10-31 17:13:59 MDT INFO  [main] --- Container Scanner actions finished.
+2025-10-31 17:13:59 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:59 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:13:59 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:59 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:13:59 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:13:59 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:13:59 MDT INFO  [main] --- 
+2025-10-31 17:13:59 MDT INFO  [main] --- 
+2025-10-31 17:13:59 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-13-41-125/status/status.json
+2025-10-31 17:13:59 MDT INFO  [main] --- 
+2025-10-31 17:13:59 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:13:59 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-13-41-125
+2025-10-31 17:14:00 MDT INFO  [main] --- 
+2025-10-31 17:14:00 MDT INFO  [main] --- 
+2025-10-31 17:14:00 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:14:00 MDT INFO  [main] --- 
+2025-10-31 17:14:00 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/50179e55-4708-4800-b59a-8444294ffcc5/versions/af72a0aa-64f5-4212-a5f4-a0d1ef63a652/components
+2025-10-31 17:14:00 MDT INFO  [main] --- 
+2025-10-31 17:14:00 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:14:00 MDT INFO  [main] --- 
+2025-10-31 17:14:00 MDT INFO  [main] --- Signature scan / Snippet scan on /private/tmp/scan_scan_6_96779: SUCCESS
+2025-10-31 17:14:00 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:14:00 MDT INFO  [main] --- 
+2025-10-31 17:14:00 MDT INFO  [main] --- ===============================
+2025-10-31 17:14:00 MDT INFO  [main] --- 
+2025-10-31 17:14:00 MDT INFO  [main] --- Detect duration: 00h 00m 19s 913ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-binary_scan_medium-1761952440-96779 --detect.project.version.name=1.0 --detect.tools=BINARY_SCAN
+2025-10-31 17:14:02 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:14:03 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:14:03 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:14:03 MDT INFO  [main] --- 
+2025-10-31 17:14:03 MDT INFO  [main] --- Current property values:
+2025-10-31 17:14:03 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:14:03 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:03 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:14:03 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:14:03 MDT INFO  [main] --- detect.project.name = enhanced-binary_scan_medium-1761952440-96779 [cmd] 
+2025-10-31 17:14:03 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:14:03 MDT INFO  [main] --- detect.tools = BINARY_SCAN [cmd] 
+2025-10-31 17:14:03 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:03 MDT INFO  [main] --- 
+2025-10-31 17:14:03 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:14:03 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_7_96779
+2025-10-31 17:14:03 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:14:03 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-14-03-584
+2025-10-31 17:14:03 MDT INFO  [main] --- 
+2025-10-31 17:14:06 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:14:07 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:07 MDT INFO  [main] --- Docker tool will not be run.
+2025-10-31 17:14:07 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:07 MDT INFO  [main] --- Bazel tool will not be run.
+2025-10-31 17:14:07 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:07 MDT INFO  [main] --- Detectors tool will not be run.
+2025-10-31 17:14:07 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:07 MDT INFO  [main] --- Project name: enhanced-binary_scan_medium-1761952440-96779
+2025-10-31 17:14:07 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:14:07 MDT INFO  [main] --- The enhanced-binary_scan_medium-1761952440-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:14:13 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:13 MDT INFO  [main] --- Signature Scanner tool will not be run.
+2025-10-31 17:14:13 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:13 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:14:13 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:14:13 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:14:13 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:13 MDT INFO  [main] --- Container Scanner tool will not be run.
+2025-10-31 17:14:13 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:13 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:14:13 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:13 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:14:13 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:13 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-14-03-584/status/status.json
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:14:14 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-14-03-584
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/31e6d0bc-e841-4d54-80aa-f2e3b1cecb07/versions/92cf3e98-d322-4b81-a232-5cb49085a3da/components
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- ===============================
+2025-10-31 17:14:14 MDT INFO  [main] --- 
+2025-10-31 17:14:14 MDT INFO  [main] --- Detect duration: 00h 00m 12s 049ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-signature_scan_medium-1761952455-96779 --detect.project.version.name=1.0
+2025-10-31 17:14:16 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:14:16 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:14:17 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:14:17 MDT INFO  [main] --- 
+2025-10-31 17:14:17 MDT INFO  [main] --- Current property values:
+2025-10-31 17:14:17 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:14:17 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:17 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:14:17 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:14:17 MDT INFO  [main] --- detect.project.name = enhanced-signature_scan_medium-1761952455-96779 [cmd] 
+2025-10-31 17:14:17 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:14:17 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:17 MDT INFO  [main] --- 
+2025-10-31 17:14:17 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:14:17 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_8_96779
+2025-10-31 17:14:17 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:14:17 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-14-17-137
+2025-10-31 17:14:17 MDT INFO  [main] --- 
+2025-10-31 17:14:20 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:14:20 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:20 MDT INFO  [main] --- Will include the Docker tool.
+2025-10-31 17:14:20 MDT INFO  [main] --- Docker actions finished.
+2025-10-31 17:14:20 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:20 MDT INFO  [main] --- Will include the Bazel tool.
+2025-10-31 17:14:20 MDT INFO  [main] --- Bazel actions finished.
+2025-10-31 17:14:20 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:20 MDT INFO  [main] --- Will include the Detectors tool.
+2025-10-31 17:14:20 MDT INFO  [main] --- Searching for detectors.
+2025-10-31 17:14:20 MDT INFO  [main] --- Evaluating detectors. This may take a while.
+2025-10-31 17:14:20 MDT INFO  [main] --- ======================================================================================================
+2025-10-31 17:14:20 MDT INFO  [main] --- Detector Report
+2025-10-31 17:14:20 MDT INFO  [main] --- ======================================================================================================
+2025-10-31 17:14:20 MDT INFO  [main] --- No detectors found.
+2025-10-31 17:14:20 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:20 MDT INFO  [main] --- Detectors actions finished.
+2025-10-31 17:14:20 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:20 MDT INFO  [main] --- Project name: enhanced-signature_scan_medium-1761952455-96779
+2025-10-31 17:14:20 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:14:21 MDT INFO  [main] --- The enhanced-signature_scan_medium-1761952455-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:14:27 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:27 MDT INFO  [main] --- Will include the Signature Scanner tool.
+2025-10-31 17:14:28 MDT INFO  [main] --- The Black Duck Signature Scanner downloaded/found successfully: /Users/karth/blackduck/tools
+2025-10-31 17:14:28 MDT INFO  [main] --- No scan targets provided - registering the source path /private/tmp/scan_scan_8_96779 to scan
+2025-10-31 17:14:29 MDT INFO  [main] --- Starting the Black Duck Signature Scan commands.
+2025-10-31 17:14:29 MDT INFO  [pool-3-thread-1] --- Black Duck CLI command: /Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/jre/Contents/Home/bin/java -Done-jar.silent=true -Done-jar.jar.path=/Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/lib/cache/scan.cli.impl-standalone.jar -Xmx4096m -jar /Users/karth/blackduck/tools/Black_Duck_Scan_Installation/scan.cli-1.0.6/lib/scan.cli-1.0.6-standalone.jar --no-prompt --scheme https --host rg-250sph-2025-7-1.saas-staging.blackduck.com --port 443 -v --logDir /Users/karth/blackduck/runs/2025-10-31-23-14-17-137/scan/BlackDuckScanOutput/2025-10-31_23-14-29-656_1 --statusWriteDir /Users/karth/blackduck/runs/2025-10-31-23-14-17-137/scan/BlackDuckScanOutput/2025-10-31_23-14-29-656_1 --project enhanced-signature_scan_medium-1761952455-96779 --release 1.0 --name scan_scan_8_96779/enhanced-signature_scan_medium-1761952455-96779/1.0 signature --scass-scan /private/tmp/scan_scan_8_96779
+2025-10-31 17:14:33 MDT INFO  [pool-3-thread-1] --- 
+2025-10-31 17:14:33 MDT INFO  [pool-3-thread-1] --- Black Duck Signature Scanner return code: 0
+2025-10-31 17:14:33 MDT INFO  [pool-3-thread-1] --- Signature Scanner log output directory: '/Users/karth/blackduck/runs/2025-10-31-23-14-17-137/scan/BlackDuckScanOutput/2025-10-31_23-14-29-656_1'
+2025-10-31 17:14:33 MDT INFO  [main] --- Completed the Black Duck Signature Scan commands.
+2025-10-31 17:14:34 MDT INFO  [main] --- Signature Scanner actions finished.
+2025-10-31 17:14:34 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:34 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:14:34 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:14:34 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:14:34 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:34 MDT INFO  [main] --- Will include the Container Scanner tool.
+2025-10-31 17:14:34 MDT INFO  [main] --- No detect.container.scan.file.path property was provided. Skipping container scan.
+2025-10-31 17:14:34 MDT INFO  [main] --- Container Scanner actions finished.
+2025-10-31 17:14:34 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:34 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:14:34 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:34 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:14:34 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:34 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-14-17-137/status/status.json
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:14:35 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-14-17-137
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/94727b59-717f-4627-8a56-44f3036eb485/versions/72b35bbd-d271-483f-8225-5648f0fda372/components
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- Signature scan / Snippet scan on /private/tmp/scan_scan_8_96779: SUCCESS
+2025-10-31 17:14:35 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- ===============================
+2025-10-31 17:14:35 MDT INFO  [main] --- 
+2025-10-31 17:14:35 MDT INFO  [main] --- Detect duration: 00h 00m 19s 294ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-binary_scan_small-1761952475-96779 --detect.project.version.name=1.0 --detect.tools=BINARY_SCAN
+2025-10-31 17:14:37 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:14:37 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:14:38 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:14:38 MDT INFO  [main] --- 
+2025-10-31 17:14:38 MDT INFO  [main] --- Current property values:
+2025-10-31 17:14:38 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:14:38 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:38 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:14:38 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:14:38 MDT INFO  [main] --- detect.project.name = enhanced-binary_scan_small-1761952475-96779 [cmd] 
+2025-10-31 17:14:38 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:14:38 MDT INFO  [main] --- detect.tools = BINARY_SCAN [cmd] 
+2025-10-31 17:14:38 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:38 MDT INFO  [main] --- 
+2025-10-31 17:14:38 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:14:38 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_9_96779
+2025-10-31 17:14:38 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:14:38 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-14-38-093
+2025-10-31 17:14:38 MDT INFO  [main] --- 
+2025-10-31 17:14:41 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:14:41 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:41 MDT INFO  [main] --- Docker tool will not be run.
+2025-10-31 17:14:41 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:41 MDT INFO  [main] --- Bazel tool will not be run.
+2025-10-31 17:14:41 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:41 MDT INFO  [main] --- Detectors tool will not be run.
+2025-10-31 17:14:41 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:41 MDT INFO  [main] --- Project name: enhanced-binary_scan_small-1761952475-96779
+2025-10-31 17:14:41 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:14:42 MDT INFO  [main] --- The enhanced-binary_scan_small-1761952475-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:14:48 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:48 MDT INFO  [main] --- Signature Scanner tool will not be run.
+2025-10-31 17:14:48 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:48 MDT INFO  [main] --- Will include the Binary Scanner tool.
+2025-10-31 17:14:48 MDT INFO  [main] --- Binary scanner found nothing to upload.
+2025-10-31 17:14:48 MDT INFO  [main] --- Binary Scanner actions finished.
+2025-10-31 17:14:48 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:48 MDT INFO  [main] --- Container Scanner tool will not be run.
+2025-10-31 17:14:48 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:48 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:14:48 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:48 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:14:48 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:48 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-14-38-093/status/status.json
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:14:49 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-14-38-093
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/67146062-1f82-4c67-9d4e-8985ffd27de3/versions/693b46ed-3d14-40f5-9757-a7f4206ead71/components
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- ===============================
+2025-10-31 17:14:49 MDT INFO  [main] --- 
+2025-10-31 17:14:49 MDT INFO  [main] --- Detect duration: 00h 00m 12s 050ms
+Result code of 0, exiting
+Detect Shell Script 3.4.1
+Will look for : https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/detect/11.0.0/detect-11.0.0.jar
+You have already downloaded the latest file, so the local file will be used.
+Java Source: PATH
+running Detect: "java"  -jar "/Users/karth/detect/download/detect-11.0.0.jar"  --blackduck.url=https://rg-250sph-2025-7-1.saas-staging.blackduck.com --blackduck.api.token=<redacted> --detect.project.name=enhanced-container_scan_large-1761952489-96779 --detect.project.version.name=1.0 --detect.tools=CONTAINER_SCAN
+2025-10-31 17:14:51 MDT INFO  [main] --- Detect-Self-Updater:  Checking https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/tools/detect API for centrally managed Detect version to download to /Users/karth/tmp.
+2025-10-31 17:14:51 MDT INFO  [main] --- Detect-Self-Updater:  Present Detect installation is up to date - skipping download.
+______     _            _
+|  _  \   | |          | |
+| | | |___| |_ ___  ___| |_
+| | | / _ \ __/ _ \/ __| __|
+| |/ /  __/ ||  __/ (__| |_
+|___/ \___|\__\___|\___|\__|
+
+2025-10-31 17:14:51 MDT DEBUG [main] --- Loading source class com.blackduck.integration.detect.Application
+
+Detect Version: 11.0.0
+
+2025-10-31 17:14:51 MDT INFO  [main] --- 
+2025-10-31 17:14:51 MDT INFO  [main] --- Current property values:
+2025-10-31 17:14:51 MDT INFO  [main] --- --property = value [notes]
+2025-10-31 17:14:51 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:51 MDT INFO  [main] --- blackduck.api.token = **************************************************************************************************** [cmd] 
+2025-10-31 17:14:51 MDT INFO  [main] --- blackduck.url = https://rg-250sph-2025-7-1.saas-staging.blackduck.com [cmd] 
+2025-10-31 17:14:51 MDT INFO  [main] --- detect.project.name = enhanced-container_scan_large-1761952489-96779 [cmd] 
+2025-10-31 17:14:51 MDT INFO  [main] --- detect.project.version.name = 1.0 [cmd] 
+2025-10-31 17:14:51 MDT INFO  [main] --- detect.tools = CONTAINER_SCAN [cmd] 
+2025-10-31 17:14:51 MDT INFO  [main] --- ------------------------------------------------------------
+2025-10-31 17:14:51 MDT INFO  [main] --- 
+2025-10-31 17:14:51 MDT INFO  [main] --- Detect build date: 2025-10-30
+2025-10-31 17:14:51 MDT INFO  [main] --- Source directory: /private/tmp/scan_scan_10_96779
+2025-10-31 17:14:51 MDT INFO  [main] --- Output directory: /Users/karth/blackduck
+2025-10-31 17:14:51 MDT INFO  [main] --- Run directory: /Users/karth/blackduck/runs/2025-10-31-23-14-51-759
+2025-10-31 17:14:51 MDT INFO  [main] --- 
+2025-10-31 17:14:54 MDT INFO  [main] --- Successfully connected to Black Duck SCA (version 2025.7.1)!
+2025-10-31 17:14:55 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:55 MDT INFO  [main] --- Docker tool will not be run.
+2025-10-31 17:14:55 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:55 MDT INFO  [main] --- Bazel tool will not be run.
+2025-10-31 17:14:55 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:55 MDT INFO  [main] --- Detectors tool will not be run.
+2025-10-31 17:14:55 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:14:55 MDT INFO  [main] --- Project name: enhanced-container_scan_large-1761952489-96779
+2025-10-31 17:14:55 MDT INFO  [main] --- Project version: 1.0
+2025-10-31 17:14:56 MDT INFO  [main] --- The enhanced-container_scan_large-1761952489-96779 project was not found, so it will be created - if a version was included, it will also be created.
+2025-10-31 17:15:02 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:15:02 MDT INFO  [main] --- Signature Scanner tool will not be run.
+2025-10-31 17:15:02 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:15:02 MDT INFO  [main] --- Binary Scanner tool will not be run.
+2025-10-31 17:15:02 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:15:02 MDT INFO  [main] --- Will include the Container Scanner tool.
+2025-10-31 17:15:02 MDT INFO  [main] --- No detect.container.scan.file.path property was provided. Skipping container scan.
+2025-10-31 17:15:02 MDT INFO  [main] --- Container Scanner actions finished.
+2025-10-31 17:15:02 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:15:02 MDT INFO  [main] --- Vulnerability Impact Analysis tool will not be run.
+2025-10-31 17:15:02 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:15:02 MDT INFO  [main] --- IaC Scanner tool will not be run.
+2025-10-31 17:15:02 MDT INFO  [main] --- ----------------------------------
+2025-10-31 17:15:02 MDT INFO  [main] --- Checking to see if Detect should check policy for violations.
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- Creating status file: /Users/karth/blackduck/runs/2025-10-31-23-14-51-759/status/status.json
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- Status file has been deleted.  To preserve status file, turn off cleanup actions.
+2025-10-31 17:15:03 MDT INFO  [main] --- Cleaning up directory: /Users/karth/blackduck/runs/2025-10-31-23-14-51-759
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- ======== Detect Result ========
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- Black Duck SCA Project BOM: https://rg-250sph-2025-7-1.saas-staging.blackduck.com/api/projects/a18e1522-6079-4371-a59b-301e226e5586/versions/d6518d39-dbcb-4e9d-88c5-235e3fc8ce71/components
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- ======== Detect Status ========
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- Overall Status: SUCCESS - Detect exited successfully.
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- ===============================
+2025-10-31 17:15:03 MDT INFO  [main] --- 
+2025-10-31 17:15:03 MDT INFO  [main] --- Detect duration: 00h 00m 12s 491ms
+Result code of 0, exiting
+Status: 0 completed, 0 running,        0 total
