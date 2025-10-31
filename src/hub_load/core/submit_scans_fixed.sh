@@ -160,6 +160,58 @@ function get_elapsed_time() {
   echo $total_elapsed_seconds  
 }
 
+# Function to extract and display key scan results for Jenkins console
+function extract_scan_summary() {
+  local log_file="$1"
+  local scan_type="$2"
+  local scan_id="$3"
+  local project_name="$4"
+  
+  if [ ! -f "$log_file" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 SCAN SUMMARY: Log file not found: $log_file"
+    return 1
+  fi
+  
+  # Extract key information
+  local overall_status=$(grep "Overall Status:" "$log_file" | tail -1 | awk -F'Overall Status: ' '{print $2}' | awk '{print $1}')
+  local detect_duration=$(grep "Detect duration:" "$log_file" | tail -1 | awk -F'Detect duration: ' '{print $2}')
+  local project_bom_url=$(grep "Black Duck Project BOM:" "$log_file" | tail -1 | awk '{print $NF}')
+  local project_url=$(grep "Black Duck Project:" "$log_file" | head -1 | awk '{print $NF}')
+  
+  # Determine status emoji
+  local status_emoji="❓"
+  if [[ "$overall_status" == "SUCCESS"* ]]; then
+    status_emoji="✅"
+  elif [[ "$overall_status" == "FAILURE"* ]] || [[ "$overall_status" == "ERROR"* ]]; then
+    status_emoji="❌"
+  elif [[ "$overall_status" == "WARNING"* ]]; then
+    status_emoji="⚠️"
+  fi
+  
+  # Display summary to console (for Jenkins)
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 SCAN RESULT SUMMARY (Jenkins Console)"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 🏷️  Scan ID: ${scan_id:-N/A}"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎯 Scan Type: ${scan_type:-N/A}"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 📁 Project: ${project_name:-N/A}"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ${status_emoji} Overall Status: ${overall_status:-UNKNOWN}"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ⏱️  Detect Duration: ${detect_duration:-N/A}"
+  
+  if [ -n "$project_url" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔗 Black Duck Project: $project_url"
+  fi
+  
+  if [ -n "$project_bom_url" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔗 Black Duck Project BOM: $project_bom_url"
+  fi
+  
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 📄 Full Log: $log_file"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  
+  return 0
+}
+
 function cleanup_gcs() {
   if [ "${USE_GCS}" == "yes" ] && mount | grep -q "$GCS_MOUNT_POINT"; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Unmounting GCS bucket from $GCS_MOUNT_POINT"
@@ -584,13 +636,39 @@ manage_parallel_jobs() {
   local max_jobs=${MAX_PARALLEL_JOBS:-3}
   local running_jobs=0
   
-  # Count currently running jobs
+  # Count currently running jobs and extract summaries from completed ones
   for pid in "${!parallel_jobs[@]}"; do
     if kill -0 "$pid" 2>/dev/null; then
       ((running_jobs++))
     else
-      # Job finished, clean up
-      echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Parallel scan completed: ${parallel_jobs[$pid]}"
+      # Job finished, clean up and extract scan summary
+      local job_info="${parallel_jobs[$pid]}"
+      echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Parallel scan completed: $job_info"
+      
+      # Try to extract scan summary from parallel log file
+      # Expected log file pattern: ${log_dir}/parallel/${scan_id}_${SCAN_TYPE_SIZE}.log
+      local log_dir="${LOG_DIR:-/app/logs}"
+      local scan_info_parts=(${job_info//_/ })  # Split on underscores
+      
+      # Try to find the log file for this completed scan
+      if [ -d "$log_dir/parallel" ]; then
+        # Look for log files that might match this job
+        local matching_logs=$(find "$log_dir/parallel" -name "*.log" -newer <(date -d '5 minutes ago' '+%Y-%m-%d %H:%M:%S' 2>/dev/null) 2>/dev/null | head -1)
+        
+        if [ -z "$matching_logs" ]; then
+          # Fallback: find most recent log file
+          matching_logs=$(ls -1t "$log_dir/parallel/"*.log 2>/dev/null | head -1)
+        fi
+        
+        if [ -n "$matching_logs" ] && [ -f "$matching_logs" ]; then
+          # Extract scan info from job_info (format: Iteration_X_SCAN_TYPE or Scan_X_(SCAN_TYPE))
+          local scan_type=$(echo "$job_info" | sed -n 's/.*_\([A-Z_]*SCAN[A-Z_]*\).*/\1/p')
+          local scan_id=$(echo "$job_info" | sed -n 's/.*_\([0-9]\+\)_.*/\1/p')
+          
+          extract_scan_summary "$matching_logs" "${scan_type:-UNKNOWN}" "${scan_id:-N/A}" "Parallel-Scan-Project"
+        fi
+      fi
+      
       unset parallel_jobs[$pid]
     fi
   done
@@ -1396,49 +1474,62 @@ do
         fi
         
         # Only proceed with memory mapping if handler was found
+        memory_mapping_success=false
         if [ "${USE_MEMORY_MAPPING}" == "yes" ] && [ -f "$MMAP_HANDLER" ]; then
           if [ "${SCAN_TYPE}" == "SIGNATURE_SCAN" ]; then
             # For signature scans, still need to copy/link files to scan directory
-            python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 🧠 Attempting memory mapping for signature scan..."
+            if python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name" --verbose; then
+              echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Memory mapping successful for signature scan"
+              memory_mapping_success=true
+            else
+              echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ Memory mapping failed for signature scan, will use symbolic links"
+              memory_mapping_success=false
+            fi
           else
             # For binary and container scans, create memory-mapped links
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 🧠 Attempting memory mapping for ${SCAN_TYPE} scan..."
             prepared_files=($(python3 "$MMAP_HANDLER" --source-files ${project_files[@]} --dest-dir "$project_name/$cl_name"))
             if [ ${#prepared_files[@]} -eq 0 ]; then
-              echo "ERROR: Memory mapping preparation failed"
-              exit 1
+              echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ Memory mapping failed for ${SCAN_TYPE} scan, will use symbolic links"
+              memory_mapping_success=false
+            else
+              echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Memory mapping successful for ${SCAN_TYPE} scan"
+              memory_mapping_success=true
             fi
           fi
         fi
-      else
-        # Use symbolic links to save storage space - works across filesystems
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔗 Creating symbolic links to save storage space"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Benefits: No file duplication, cross-filesystem support, minimal storage usage"
         
-        link_count=0
-        for file in ${project_files[@]}; do
-          if [ -f "$file" ]; then
-            # Create symbolic link with absolute path for cross-filesystem compatibility
-            ln -sf "$(realpath "$file")" "$project_name/$cl_name/$(basename "$file")"
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Linked: $(basename "$file") -> $file"
-            link_count=$((link_count + 1))
-          else
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  File not found: $file"
-          fi
-        done
-        
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Created $link_count symbolic links (zero additional storage used)"
-        
-        # Verify symbolic links are working correctly
-        if [ $link_count -gt 0 ]; then
-          echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 Verifying symbolic links..."
-          first_link=$(find "$project_name/$cl_name" -type l -exec basename {} \; | head -1)
-          if [ -n "$first_link" ] && [ -e "$project_name/$cl_name/$first_link" ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ✅ Link verification successful: $first_link"
-          else
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  Link verification failed - may impact scanning"
+        # If memory mapping failed or is disabled, fall back to symbolic links
+        if [ "$memory_mapping_success" = false ]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔗 Falling back to symbolic links for file preparation"
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Benefits: No file duplication, cross-filesystem support, minimal storage usage"
+          
+          link_count=0
+          for file in ${project_files[@]}; do
+            if [ -f "$file" ]; then
+              # Create symbolic link with absolute path for cross-filesystem compatibility
+              ln -sf "$(realpath "$file")" "$project_name/$cl_name/$(basename "$file")"
+              echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Linked: $(basename "$file") -> $file"
+              link_count=$((link_count + 1))
+            else
+              echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  File not found: $file"
+            fi
+          done
+          
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Created $link_count symbolic links (zero additional storage used)"
+          
+          # Verify symbolic links are working correctly
+          if [ $link_count -gt 0 ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 Verifying symbolic links..."
+            first_link=$(find "$project_name/$cl_name" -type l -exec basename {} \; | head -1)
+            if [ -n "$first_link" ] && [ -e "$project_name/$cl_name/$first_link" ]; then
+              echo "$(date '+%Y-%m-%d %H:%M:%S') -   ✅ Link verification successful: $first_link"
+            else
+              echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  Link verification failed - may impact scanning"
+            fi
           fi
         fi
-      fi
       
       echo "$(date '+%Y-%m-%d %H:%M:%S') - file preparation completed"
       
@@ -1574,6 +1665,22 @@ do
             echo "DRY_RUN: Simulated parallel scan completed in 30 seconds" >> ${detect_log}
           else
             echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting Detect execution..." >> ${detect_log}
+            echo "===============================================" >> ${detect_log}
+            echo "🚀 BLACK DUCK DETECT COMMAND DETAILS" >> ${detect_log}
+            echo "===============================================" >> ${detect_log}
+            echo "• Scan Type: ${SCAN_TYPE}" >> ${detect_log}
+            echo "• Scan Type Size: ${SCAN_TYPE_SIZE}" >> ${detect_log}
+            echo "• Project Name: ${project_name}" >> ${detect_log}
+            echo "• Code Location: ${cl_name}" >> ${detect_log}
+            echo "• Working Directory: $(pwd)" >> ${detect_log}
+            echo "• Files in working directory:" >> ${detect_log}
+            ls -la . >> ${detect_log} 2>&1
+            echo "• Project Files Selected:" >> ${detect_log}
+            printf "%s\n" "${project_files[@]}" >> ${detect_log}
+            echo "• Detect Options: ${DETECT_OPTIONS}" >> ${detect_log}
+            echo "• Detect Curl Options: ${DETECT_CURL_OPTS}" >> ${detect_log}
+            echo "===============================================" >> ${detect_log}
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - Executing Black Duck Detect..." >> ${detect_log}
             bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.blackduck.com/detect10.sh) ${DETECT_OPTIONS} >> ${detect_log} 2>&1
           fi
           
@@ -1616,7 +1723,23 @@ do
           elapsed_time=30
           echo "DRY_RUN: Simulated scan completed in ${elapsed_time} seconds" > ${detect_log}
         else
-          bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.blackduck.com/detect10.sh) ${DETECT_OPTIONS} | tee ${detect_log}
+          echo "===============================================" | tee -a ${detect_log}
+          echo "🚀 BLACK DUCK DETECT COMMAND DETAILS" | tee -a ${detect_log}
+          echo "===============================================" | tee -a ${detect_log}
+          echo "• Scan Type: ${SCAN_TYPE}" | tee -a ${detect_log}
+          echo "• Scan Type Size: ${SCAN_TYPE_SIZE}" | tee -a ${detect_log}
+          echo "• Project Name: ${project_name}" | tee -a ${detect_log}
+          echo "• Code Location: ${cl_name}" | tee -a ${detect_log}
+          echo "• Working Directory: $(pwd)" | tee -a ${detect_log}
+          echo "• Files in working directory:" | tee -a ${detect_log}
+          ls -la . | tee -a ${detect_log}
+          echo "• Project Files Selected:" | tee -a ${detect_log}
+          printf "%s\n" "${project_files[@]}" | tee -a ${detect_log}
+          echo "• Detect Options: ${DETECT_OPTIONS}" | tee -a ${detect_log}
+          echo "• Detect Curl Options: ${DETECT_CURL_OPTS}" | tee -a ${detect_log}
+          echo "===============================================" | tee -a ${detect_log}
+          echo "$(date '+%Y-%m-%d %H:%M:%S') - Executing Black Duck Detect..." | tee -a ${detect_log}
+          bash <(curl -s -L ${DETECT_CURL_OPTS} https://detect.blackduck.com/detect10.sh) ${DETECT_OPTIONS} | tee -a ${detect_log}
           elapsed_time=$(get_elapsed_time $detect_log)
         fi
       fi
@@ -1648,6 +1771,12 @@ do
         # Sequential mode - original behavior
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Elapsed time for scan was ${elapsed_time} seconds"
         WAIT_TIME=$(( TARGET_DURATION  - elapsed_time ))
+        
+        # Extract and display scan summary for Jenkins console (before removing log)
+        if [ "${DRY_RUN}" != "yes" ] && [ -f "$detect_log" ]; then
+          extract_scan_summary "$detect_log" "$SCAN_TYPE" "${scan_id:-N/A}" "${project_name:-N/A}"
+        fi
+        
         rm $detect_log
 
         echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
@@ -1763,6 +1892,60 @@ done
 # Wait for all parallel scans to complete before final summary
 if [ "${PARALLEL_SCANS}" == "yes" ]; then
   wait_for_all_parallel_jobs
+  
+  # Extract final summaries from all parallel scan logs for Jenkins console
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - 📋 FINAL SCAN RESULTS SUMMARY (All Parallel Scans)"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  
+  local log_dir="${LOG_DIR:-/app/logs}"
+  if [ -d "${log_dir}/parallel" ]; then
+    local success_count=0
+    local failure_count=0
+    local total_count=0
+    
+    # Process each log file for final summary
+    for log_file in "${log_dir}/parallel/"*.log; do
+      if [ -f "$log_file" ]; then
+        ((total_count++))
+        local overall_status=$(grep "Overall Status:" "$log_file" | tail -1 | awk -F'Overall Status: ' '{print $2}' | awk '{print $1}')
+        
+        if [[ "$overall_status" == "SUCCESS"* ]]; then
+          ((success_count++))
+        elif [[ "$overall_status" == "FAILURE"* ]] || [[ "$overall_status" == "ERROR"* ]]; then
+          ((failure_count++))
+        fi
+        
+        # Extract basic info for console
+        local project_bom_url=$(grep "Black Duck Project BOM:" "$log_file" | tail -1 | awk '{print $NF}')
+        local detect_duration=$(grep "Detect duration:" "$log_file" | tail -1 | awk -F'Detect duration: ' '{print $2}')
+        local log_basename=$(basename "$log_file")
+        
+        local status_emoji="❓"
+        if [[ "$overall_status" == "SUCCESS"* ]]; then
+          status_emoji="✅"
+        elif [[ "$overall_status" == "FAILURE"* ]] || [[ "$overall_status" == "ERROR"* ]]; then
+          status_emoji="❌"
+        fi
+        
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ${status_emoji} ${log_basename}: ${overall_status:-UNKNOWN} (${detect_duration:-N/A})"
+        if [ -n "$project_bom_url" ]; then
+          echo "$(date '+%Y-%m-%d %H:%M:%S') -   📋 BOM URL: $project_bom_url"
+        fi
+      fi
+    done
+    
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 📊 PARALLEL SCAN RESULTS SUMMARY:"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total scans: $total_count"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Successful: $success_count"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Failed: $failure_count"
+    if [ $total_count -gt 0 ]; then
+      local success_rate=$(( (success_count * 100) / total_count ))
+      echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Success rate: ${success_rate}%"
+    fi
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
+  fi
 fi
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') - ==============================================="
