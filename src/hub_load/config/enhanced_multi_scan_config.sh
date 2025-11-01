@@ -329,11 +329,13 @@ get_available_scan_types() {
 
 # Global scan selection counter for deterministic ordering
 # This ensures the same scan types are selected in the same order across test runs
-SCAN_SELECTION_COUNTER=${SCAN_SELECTION_COUNTER:-0}
+# Using file-based counter to persist across subshell invocations
+SCAN_COUNTER_FILE="${SCAN_COUNTER_FILE:-/tmp/hub_load_scan_counter_$$}"
 
 # Global deterministic scan sequence (initialized once)
-DETERMINISTIC_SCAN_SEQUENCE=()
-SCAN_SEQUENCE_INITIALIZED=false
+# Using file-based storage to persist across subshells
+SCAN_SEQUENCE_FILE="${SCAN_SEQUENCE_FILE:-/tmp/hub_load_scan_sequence_$$}"
+SCAN_SEQUENCE_INIT_FLAG="${SCAN_SEQUENCE_INIT_FLAG:-/tmp/hub_load_scan_init_$$}"
 
 # Initialize deterministic scan sequence based on expected distribution
 # This ensures exact match with expected scan counts
@@ -405,7 +407,7 @@ initialize_scan_sequence() {
     done
 
     # Build deterministic interleaved sequence using round-robin
-    DETERMINISTIC_SCAN_SEQUENCE=()
+    local sequence_array=()
     local max_count=0
     for count in "${scan_type_counts[@]}"; do
         if [ "$count" -gt "$max_count" ]; then
@@ -423,19 +425,32 @@ initialize_scan_sequence() {
                 local count=${scan_type_counts[$scan_type_size]:-0}
 
                 if [ "$round" -lt "$count" ]; then
-                    DETERMINISTIC_SCAN_SEQUENCE+=("$scan_type_size")
+                    sequence_array+=("$scan_type_size")
                 fi
             fi
         done
     done
 
-    SCAN_SEQUENCE_INITIALIZED=true
+    # Save sequence to file (one per line)
+    printf "%s\n" "${sequence_array[@]}" > "$SCAN_SEQUENCE_FILE"
+
+    # Initialize counter to 0
+    echo "0" > "$SCAN_COUNTER_FILE"
+
+    # Mark as initialized
+    touch "$SCAN_SEQUENCE_INIT_FLAG"
 
     if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Initialized deterministic scan sequence with ${#DETERMINISTIC_SCAN_SEQUENCE[@]} scans" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Initialized deterministic scan sequence with ${#sequence_array[@]} scans (requested: $total_scans)" >&2
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Distribution:" >&2
         for scan_type_size in "${!scan_type_counts[@]}"; do
             echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG:   $scan_type_size: ${scan_type_counts[$scan_type_size]} scans" >&2
+        done
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Sequence order (first 20):" >&2
+        for i in {0..19}; do
+            if [ $i -lt ${#sequence_array[@]} ]; then
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG:   [$i] ${sequence_array[$i]}" >&2
+            fi
         done
     fi
 }
@@ -451,31 +466,44 @@ select_scan_type_with_size() {
     fi
 
     # Initialize scan sequence if not done yet
-    if [ "$SCAN_SEQUENCE_INITIALIZED" != "true" ]; then
+    if [ ! -f "$SCAN_SEQUENCE_INIT_FLAG" ]; then
         if ! initialize_scan_sequence; then
             echo "NO_FILES_AVAILABLE"
             return 1
         fi
     fi
 
-    # Check if we've exhausted the sequence
-    if [ "$SCAN_SELECTION_COUNTER" -ge "${#DETERMINISTIC_SCAN_SEQUENCE[@]}" ]; then
-        # Restart from beginning (for cases where MAX_SCANS > sequence length)
-        SCAN_SELECTION_COUNTER=0
-    fi
+    # Read current counter value (with file locking to prevent race conditions)
+    local counter
+    (
+        flock -x 200
+        counter=$(cat "$SCAN_COUNTER_FILE" 2>/dev/null || echo "0")
 
-    # Get scan type from pre-calculated sequence
-    local selected_scan_type="${DETERMINISTIC_SCAN_SEQUENCE[$SCAN_SELECTION_COUNTER]}"
-    SCAN_SELECTION_COUNTER=$((SCAN_SELECTION_COUNTER + 1))
+        # Get total number of scans in sequence
+        local total_scans=$(wc -l < "$SCAN_SEQUENCE_FILE" 2>/dev/null || echo "1")
 
-    # Always log the selected scan type (not debug-only)
-    if [ "${DEBUG}" != "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Selected: $selected_scan_type" >&2
-    else
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ✅ Selected: $selected_scan_type (position: $((SCAN_SELECTION_COUNTER - 1))/${#DETERMINISTIC_SCAN_SEQUENCE[@]})" >&2
-    fi
+        # Check if we've exhausted the sequence
+        if [ "$counter" -ge "$total_scans" ]; then
+            # Restart from beginning (for cases where MAX_SCANS > sequence length)
+            counter=0
+        fi
 
-    echo "$selected_scan_type"
+        # Get scan type from sequence file (1-indexed sed)
+        local selected_scan_type=$(sed -n "$((counter + 1))p" "$SCAN_SEQUENCE_FILE")
+
+        # Increment counter for next call
+        echo "$((counter + 1))" > "$SCAN_COUNTER_FILE"
+
+        # Always log the selected scan type (not debug-only)
+        if [ "${DEBUG}" != "yes" ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Selected: $selected_scan_type" >&2
+        else
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ✅ Selected: $selected_scan_type (position: $counter/$total_scans)" >&2
+        fi
+
+        echo "$selected_scan_type"
+    ) 200>"$SCAN_COUNTER_FILE.lock"
+
     return 0
 }
 

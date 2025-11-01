@@ -507,11 +507,9 @@ run_scan_batch() {
 
 # Generate scan configuration using enhanced multi-scan config
 generate_scan_config() {
-    # Source the enhanced multi-scan configuration
-    local config_path="${CONFIG_DIR}/enhanced_multi_scan_config.sh"
-    if [ -f "$config_path" ]; then
-        source "$config_path"
-
+    # Use the enhanced multi-scan configuration (already sourced by common.sh)
+    # DO NOT re-source here as it resets global counters!
+    if command -v select_scan_type_with_size >/dev/null 2>&1; then
         # Use the sophisticated scan type selection (preserve logging to stderr)
         local scan_type_size
         scan_type_size=$(select_scan_type_with_size)
