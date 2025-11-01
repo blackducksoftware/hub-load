@@ -331,31 +331,22 @@ get_available_scan_types() {
 # This ensures the same scan types are selected in the same order across test runs
 SCAN_SELECTION_COUNTER=${SCAN_SELECTION_COUNTER:-0}
 
-# Function to select scan type with size based on weighted distribution
-# Uses deterministic round-robin selection to ensure repeatability
-select_scan_type_with_size() {
+# Global deterministic scan sequence (initialized once)
+DETERMINISTIC_SCAN_SEQUENCE=()
+SCAN_SEQUENCE_INITIALIZED=false
+
+# Initialize deterministic scan sequence based on expected distribution
+# This ensures exact match with expected scan counts
+initialize_scan_sequence() {
+    local total_scans="${MAX_SCANS:-100}"
     local use_gcs="${USE_GCS:-no}"
-
-    # Verbose logging only in DEBUG mode
-    if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: SCAN TYPE SELECTION PROCESS" >&2
-    fi
-
     local unified_config=$(get_unified_scan_config)
-    if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Unified config: $unified_config" >&2
-    fi
 
     # Check available scan types with files
     local available_types=($(get_available_scan_types "$use_gcs"))
-    if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Available scan types with files: ${#available_types[@]}" >&2
-    fi
 
     if [ ${#available_types[@]} -eq 0 ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  No scan types have available files!" >&2
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Returning special marker for no files available" >&2
-        echo "NO_FILES_AVAILABLE"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚠️  No scan types have available files!" >&2
         return 1
     fi
 
@@ -384,57 +375,108 @@ select_scan_type_with_size() {
         fi
     done
 
-    if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Available config: $available_config" >&2
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Total available weight: $total_available_weight" >&2
-    fi
-
     if [[ $total_available_weight -eq 0 ]]; then
-        if [ "${DEBUG}" == "yes" ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: No weights for available types, using first available" >&2
-        fi
-        echo "${available_types[0]}"
+        DETERMINISTIC_SCAN_SEQUENCE=("${available_types[0]}")
+        SCAN_SEQUENCE_INITIALIZED=true
         return 0
     fi
 
-    # Use deterministic counter-based selection instead of RANDOM for repeatability
-    # This ensures the same scan type is selected for the same scan iteration across test runs
-    local selection_num=$((SCAN_SELECTION_COUNTER % total_available_weight))
-    SCAN_SELECTION_COUNTER=$((SCAN_SELECTION_COUNTER + 1))
+    # Calculate exact count for each scan type (matching get_expected_distribution rounding)
+    declare -A scan_type_counts
 
-    if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Deterministic selection number: $selection_num (counter: $((SCAN_SELECTION_COUNTER - 1)), range: 0-$((total_available_weight-1)))" >&2
-    fi
-    local cumulative=0
-    
     IFS=',' read -ra PAIRS <<< "$available_config"
     for pair in "${PAIRS[@]}"; do
         IFS=':' read -ra SPLIT <<< "$pair"
         if [[ ${#SPLIT[@]} -eq 2 ]]; then
             local scan_type_size="${SPLIT[0]}"
-            local weight="${SPLIT[1]}"
-            cumulative=$((cumulative + weight))
-            if [ "${DEBUG}" == "yes" ]; then
-                echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Checking $scan_type_size (weight: $weight, cumulative: $cumulative)" >&2
+            local percentage="${SPLIT[1]}"
+
+            # Calculate expected count with rounding (same logic as get_expected_distribution)
+            local expected_count=$((total_scans * percentage / 100))
+            local remainder=$((total_scans * percentage % 100))
+
+            # Round up if remainder >= 50 (matching get_expected_distribution)
+            if [ $remainder -ge 50 ]; then
+                expected_count=$((expected_count + 1))
             fi
-            if [[ $selection_num -lt $cumulative ]]; then
-                # Always log the selected scan type (not debug-only)
-                if [ "${DEBUG}" != "yes" ]; then
-                    echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Selected: $scan_type_size" >&2
-                else
-                    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ✅ Selected: $scan_type_size" >&2
-                fi
-                echo "$scan_type_size"
-                return 0
-            fi
+
+            scan_type_counts[$scan_type_size]=$expected_count
         fi
     done
 
-    # Fallback to first available
+    # Build deterministic interleaved sequence using round-robin
+    DETERMINISTIC_SCAN_SEQUENCE=()
+    local max_count=0
+    for count in "${scan_type_counts[@]}"; do
+        if [ "$count" -gt "$max_count" ]; then
+            max_count=$count
+        fi
+    done
+
+    # Interleave scan types using round-robin to create mixed pattern
+    for ((round=0; round<max_count; round++)); do
+        IFS=',' read -ra PAIRS <<< "$available_config"
+        for pair in "${PAIRS[@]}"; do
+            IFS=':' read -ra SPLIT <<< "$pair"
+            if [[ ${#SPLIT[@]} -eq 2 ]]; then
+                local scan_type_size="${SPLIT[0]}"
+                local count=${scan_type_counts[$scan_type_size]:-0}
+
+                if [ "$round" -lt "$count" ]; then
+                    DETERMINISTIC_SCAN_SEQUENCE+=("$scan_type_size")
+                fi
+            fi
+        done
+    done
+
+    SCAN_SEQUENCE_INITIALIZED=true
+
     if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ⚠️  No match found, using first available: ${available_types[0]}" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Initialized deterministic scan sequence with ${#DETERMINISTIC_SCAN_SEQUENCE[@]} scans" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Distribution:" >&2
+        for scan_type_size in "${!scan_type_counts[@]}"; do
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG:   $scan_type_size: ${scan_type_counts[$scan_type_size]} scans" >&2
+        done
     fi
-    echo "${available_types[0]}"
+}
+
+# Function to select scan type with size based on weighted distribution
+# Uses deterministic pre-calculated sequence to ensure exact distribution
+select_scan_type_with_size() {
+    local use_gcs="${USE_GCS:-no}"
+
+    # Verbose logging only in DEBUG mode
+    if [ "${DEBUG}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: SCAN TYPE SELECTION PROCESS" >&2
+    fi
+
+    # Initialize scan sequence if not done yet
+    if [ "$SCAN_SEQUENCE_INITIALIZED" != "true" ]; then
+        if ! initialize_scan_sequence; then
+            echo "NO_FILES_AVAILABLE"
+            return 1
+        fi
+    fi
+
+    # Check if we've exhausted the sequence
+    if [ "$SCAN_SELECTION_COUNTER" -ge "${#DETERMINISTIC_SCAN_SEQUENCE[@]}" ]; then
+        # Restart from beginning (for cases where MAX_SCANS > sequence length)
+        SCAN_SELECTION_COUNTER=0
+    fi
+
+    # Get scan type from pre-calculated sequence
+    local selected_scan_type="${DETERMINISTIC_SCAN_SEQUENCE[$SCAN_SELECTION_COUNTER]}"
+    SCAN_SELECTION_COUNTER=$((SCAN_SELECTION_COUNTER + 1))
+
+    # Always log the selected scan type (not debug-only)
+    if [ "${DEBUG}" != "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Selected: $selected_scan_type" >&2
+    else
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ✅ Selected: $selected_scan_type (position: $((SCAN_SELECTION_COUNTER - 1))/${#DETERMINISTIC_SCAN_SEQUENCE[@]})" >&2
+    fi
+
+    echo "$selected_scan_type"
+    return 0
 }
 
 # Function to parse scan type and size from combined string

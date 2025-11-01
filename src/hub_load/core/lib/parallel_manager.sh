@@ -169,8 +169,11 @@ start_parallel_job() {
     # Track the job
     parallel_jobs["$job_pid"]="$log_file"
     parallel_job_info["$job_pid"]="$job_name"
-    
+
+    # Send job start confirmation to both stderr (log) and stdout (Jenkins console)
     log_success "Parallel job started: $job_name (PID: $job_pid)"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Parallel job started: $job_name (PID: $job_pid)"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -    📄 Log file: $log_file"
     return 0
 }
 
@@ -240,15 +243,16 @@ extract_job_results() {
     done
     
     local total_jobs=$((success_count + failure_count))
-    
-    log_info "Parallel job results:"
-    log_info "  • Total jobs: $total_jobs"
-    log_info "  • Successful: $success_count"
-    log_info "  • Failed: $failure_count"
-    
+
+    # Send parallel job results to stdout for pipeline processing
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 📊 Parallel job results:"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total jobs: $total_jobs"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Successful: $success_count"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Failed: $failure_count"
+
     if [ "$total_jobs" -gt 0 ]; then
         local success_rate=$(( (success_count * 100) / total_jobs ))
-        log_info "  • Success rate: ${success_rate}%"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Success rate: ${success_rate}%"
     fi
     
     return 0

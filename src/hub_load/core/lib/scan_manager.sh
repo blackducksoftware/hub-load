@@ -83,12 +83,20 @@ execute_scan() {
     # Set snippets flag (default to "no" if not provided for backward compatibility)
     snippets="${snippets:-no}"
 
+    # Determine log file path for this scan
+    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
+    local scan_timestamp=$(date '+%H%M%S')
+    local log_file="${log_dir}/${scan_id}_${scan_type_size}.log"
+
     # Concise summary logged only when NOT in DEBUG mode
     # In DEBUG mode, detailed logs will show everything
     if [ "${DEBUG}" != "yes" ]; then
         log_info "🚀 Scan: $scan_type_size | Project: $project_name | Version: 1.0"
+        # Send log file path to stdout for Jenkins console
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -    📄 Log: $log_file"
     else
         log_info "Executing scan: $scan_type for project $project_name (size: $scan_size, snippets: $snippets)"
+        log_info "Log file: $log_file"
     fi
 
     # Discover files from test data directories if enhanced mode is enabled
@@ -228,8 +236,9 @@ execute_scan() {
         if eval "$scan_command"; then
             local end_time=$(date +%s)
             local duration=$((end_time - start_time))
-            log_success "Scan completed successfully in ${duration}s"
-            
+            # Send success message to stdout for pipeline processing
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Scan completed successfully in ${duration}s"
+
             # Update counters
             case "$scan_type" in
                 SIGNATURE_SCAN) ((SIGNATURE_SCAN_COUNT++)) ;;
@@ -672,9 +681,9 @@ print_scan_statistics() {
             local failed_count=0
             local running_count=0
 
-            # Table header
-            printf "%-40s %-10s %-38s\n" "PROJECT" "STATUS" "SCAN_ID" >&2
-            printf "%-40s %-10s %-38s\n" "----------------------------------------" "----------" "--------------------------------------" >&2
+            # Table header - send to stdout for pipeline processing
+            printf "%-40s %-10s %-38s\n" "PROJECT" "STATUS" "SCAN_ID"
+            printf "%-40s %-10s %-38s\n" "----------------------------------------" "----------" "--------------------------------------"
 
             for log_file in "${PARALLEL_LOG_DIR}"/*.log; do
                 if [ -f "$log_file" ]; then
@@ -694,22 +703,27 @@ print_scan_statistics() {
                         RUNNING) ((running_count++)) ;;
                     esac
 
-                    # Print row
-                    printf "%-40s %-10s %-38s\n" "${project:0:40}" "$status" "$scan_id" >&2
+                    # Print row - send to stdout for pipeline processing
+                    printf "%-40s %-10s %-38s\n" "${project:0:40}" "$status" "$scan_id"
 
-                    # Print BOM URL if available
+                    # Print BOM URL if available - send to stdout for pipeline processing
                     if [ "$bom_url" != "N/A" ]; then
-                        printf "  └─ BOM: %s\n" "$bom_url" >&2
+                        printf "  └─ BOM: %s\n" "$bom_url"
                     fi
+
+                    # Print log file path - send to stdout for Jenkins console visibility
+                    printf "  └─ Log: %s\n" "$log_file"
                 fi
             done
 
             log_info ""
             log_info "==============================================="
-            log_info "Status Summary:"
-            log_info "  ✅ Successful: $success_count"
-            log_info "  ❌ Failed: $failed_count"
-            log_info "  🔄 Running: $running_count"
+
+            # Send status summary to stdout for pipeline processing
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 📊 Status Summary:"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ✅ Successful: $success_count"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ❌ Failed: $failed_count"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') -   🔄 Running: $running_count"
         fi
     fi
 
