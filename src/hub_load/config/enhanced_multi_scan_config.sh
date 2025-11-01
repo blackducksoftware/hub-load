@@ -327,7 +327,12 @@ get_available_scan_types() {
     echo "${available_types[@]}"
 }
 
+# Global scan selection counter for deterministic ordering
+# This ensures the same scan types are selected in the same order across test runs
+SCAN_SELECTION_COUNTER=${SCAN_SELECTION_COUNTER:-0}
+
 # Function to select scan type with size based on weighted distribution
+# Uses deterministic round-robin selection to ensure repeatability
 select_scan_type_with_size() {
     local use_gcs="${USE_GCS:-no}"
 
@@ -346,25 +351,25 @@ select_scan_type_with_size() {
     if [ "${DEBUG}" == "yes" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Available scan types with files: ${#available_types[@]}" >&2
     fi
-    
+
     if [ ${#available_types[@]} -eq 0 ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  No scan types have available files!" >&2
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Returning special marker for no files available" >&2
         echo "NO_FILES_AVAILABLE"
         return 1
     fi
-    
+
     # Create a weighted config from only available scan types
     local available_config=""
     local total_available_weight=0
-    
+
     IFS=',' read -ra PAIRS <<< "$unified_config"
     for pair in "${PAIRS[@]}"; do
         IFS=':' read -ra SPLIT <<< "$pair"
         if [[ ${#SPLIT[@]} -eq 2 ]]; then
             local scan_type_size="${SPLIT[0]}"
             local weight="${SPLIT[1]}"
-            
+
             # Check if this scan type is in our available list
             for available_type in "${available_types[@]}"; do
                 if [ "$scan_type_size" == "$available_type" ]; then
@@ -378,7 +383,7 @@ select_scan_type_with_size() {
             done
         fi
     done
-    
+
     if [ "${DEBUG}" == "yes" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Available config: $available_config" >&2
         echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Total available weight: $total_available_weight" >&2
@@ -392,9 +397,13 @@ select_scan_type_with_size() {
         return 0
     fi
 
-    local random_num=$((RANDOM % total_available_weight))
+    # Use deterministic counter-based selection instead of RANDOM for repeatability
+    # This ensures the same scan type is selected for the same scan iteration across test runs
+    local selection_num=$((SCAN_SELECTION_COUNTER % total_available_weight))
+    SCAN_SELECTION_COUNTER=$((SCAN_SELECTION_COUNTER + 1))
+
     if [ "${DEBUG}" == "yes" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Random number: $random_num (range: 0-$((total_available_weight-1)))" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Deterministic selection number: $selection_num (counter: $((SCAN_SELECTION_COUNTER - 1)), range: 0-$((total_available_weight-1)))" >&2
     fi
     local cumulative=0
     
@@ -408,7 +417,7 @@ select_scan_type_with_size() {
             if [ "${DEBUG}" == "yes" ]; then
                 echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Checking $scan_type_size (weight: $weight, cumulative: $cumulative)" >&2
             fi
-            if [[ $random_num -lt $cumulative ]]; then
+            if [[ $selection_num -lt $cumulative ]]; then
                 # Always log the selected scan type (not debug-only)
                 if [ "${DEBUG}" != "yes" ]; then
                     echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Selected: $scan_type_size" >&2

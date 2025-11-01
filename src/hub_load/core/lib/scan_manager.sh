@@ -76,22 +76,25 @@ execute_scan() {
         return 1
     fi
 
-    # Parse scan configuration
-    local scan_type project_name scan_size scan_type_size
-    IFS='|' read -r scan_type project_name scan_size scan_type_size <<< "$scan_config"
+    # Parse scan configuration (now includes snippets flag)
+    local scan_type project_name scan_size scan_type_size snippets
+    IFS='|' read -r scan_type project_name scan_size scan_type_size snippets <<< "$scan_config"
+
+    # Set snippets flag (default to "no" if not provided for backward compatibility)
+    snippets="${snippets:-no}"
 
     # Concise summary logged only when NOT in DEBUG mode
     # In DEBUG mode, detailed logs will show everything
     if [ "${DEBUG}" != "yes" ]; then
         log_info "🚀 Scan: $scan_type_size | Project: $project_name | Version: 1.0"
     else
-        log_info "Executing scan: $scan_type for project $project_name (size: $scan_size)"
+        log_info "Executing scan: $scan_type for project $project_name (size: $scan_size, snippets: $snippets)"
     fi
 
     # Discover files from test data directories if enhanced mode is enabled
     if [ "${ENHANCED_MULTI_SCAN}" == "yes" ] && [ -n "$scan_type_size" ]; then
         if [ "${DEBUG}" == "yes" ]; then
-            log_info "🔍 Discovering files for $scan_type_size from test data directories"
+            log_info "🔍 Discovering files for $scan_type_size from test data directories (snippets: $snippets)"
         fi
 
         # Determine project root for file discovery
@@ -100,8 +103,8 @@ execute_scan() {
             project_root=$(get_local_directory_for_scan_type "$scan_type_size")
         fi
 
-        # Discover files based on scan type and size
-        if discover_scan_files "$scan_type" "$scan_type_size" "$project_root" "${SNIPPETS:-no}"; then
+        # Discover files based on scan type and size, passing the snippets flag
+        if discover_scan_files "$scan_type" "$scan_type_size" "$project_root" "$snippets"; then
             if [ "${DEBUG}" == "yes" ]; then
                 log_success "File discovery completed: ${#DISCOVERED_FILES[@]} files available"
             fi
@@ -499,44 +502,44 @@ generate_scan_config() {
     local config_path="${CONFIG_DIR}/enhanced_multi_scan_config.sh"
     if [ -f "$config_path" ]; then
         source "$config_path"
-        
+
         # Use the sophisticated scan type selection (preserve logging to stderr)
         local scan_type_size
         scan_type_size=$(select_scan_type_with_size)
-        
+
         if [ "$scan_type_size" == "NO_FILES_AVAILABLE" ]; then
             log_warning "No files available for enhanced multi-scan, falling back to default"
             local scan_type="${SCAN_TYPE:-SIGNATURE_SCAN}"
             local project_name="test-project-$(date +%s)-$$"
             local scan_size="MEDIUM"
-            echo "${scan_type}|${project_name}|${scan_size}"
+            local snippets="no"
+            echo "${scan_type}|${project_name}|${scan_size}||${snippets}"
             return
         fi
-        
+
         # Parse the enhanced scan type selection
         local scan_info=($(parse_scan_type_and_size "$scan_type_size"))
         local scan_type="${scan_info[0]}"
         local scan_size="${scan_info[1]}"
-        
+
         # Handle snippet scans (they use SIGNATURE_SCAN as base)
+        local snippets="no"
         if [[ "$scan_type_size" == "SNIPPET_SCAN"* ]]; then
             scan_type="SIGNATURE_SCAN"
-            export SNIPPETS="yes"
-            export ENABLE_ENHANCED_MULTI_SCAN="yes"
-        else
-            export SNIPPETS="no"
+            snippets="yes"
         fi
-        
+
         local project_name="enhanced-$(echo "$scan_type_size" | tr '[:upper:]' '[:lower:]')-$(date +%s)-$$"
-        
-        log_debug "Enhanced scan config: $scan_type_size -> $scan_type/$scan_size"
-        echo "${scan_type}|${project_name}|${scan_size}|${scan_type_size}"
+
+        log_debug "Enhanced scan config: $scan_type_size -> $scan_type/$scan_size (snippets=$snippets)"
+        echo "${scan_type}|${project_name}|${scan_size}|${scan_type_size}|${snippets}"
     else
         log_warning "Enhanced multi-scan config not found, using basic configuration"
         local scan_type="${SCAN_TYPE:-SIGNATURE_SCAN}"
         local project_name="test-project-$(date +%s)-$$"
         local scan_size="MEDIUM"
-        echo "${scan_type}|${project_name}|${scan_size}"
+        local snippets="no"
+        echo "${scan_type}|${project_name}|${scan_size}||${snippets}"
     fi
 }
 

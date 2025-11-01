@@ -674,7 +674,13 @@ discover_scan_files() {
         log_info "📏 FILTERING FILES BY SIZE CATEGORY"
 
         # Extract size category from SCAN_TYPE_SIZE
-        local size_category=$(echo "$scan_type_size" | sed 's/.*_\([^_]*\)$/\1/')
+        # Handle special case for SNIPPET_SCAN (no size suffix)
+        local size_category
+        if [[ "$scan_type_size" == "SNIPPET_SCAN" ]]; then
+            size_category="MEDIUM"  # Default for snippet scans
+        else
+            size_category=$(echo "$scan_type_size" | sed 's/.*_\([^_]*\)$/\1/')
+        fi
         log_info "  • Target size category: $size_category"
 
         # Define size ranges in bytes (aligned with SCASS processing swim lanes)
