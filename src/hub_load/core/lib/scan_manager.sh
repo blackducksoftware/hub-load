@@ -80,11 +80,19 @@ execute_scan() {
     local scan_type project_name scan_size scan_type_size
     IFS='|' read -r scan_type project_name scan_size scan_type_size <<< "$scan_config"
 
-    log_info "Executing scan: $scan_type for project $project_name (size: $scan_size)"
+    # Concise summary logged only when NOT in DEBUG mode
+    # In DEBUG mode, detailed logs will show everything
+    if [ "${DEBUG}" != "yes" ]; then
+        log_info "🚀 Scan: $scan_type_size | Project: $project_name | Version: 1.0"
+    else
+        log_info "Executing scan: $scan_type for project $project_name (size: $scan_size)"
+    fi
 
     # Discover files from test data directories if enhanced mode is enabled
     if [ "${ENHANCED_MULTI_SCAN}" == "yes" ] && [ -n "$scan_type_size" ]; then
-        log_info "🔍 Discovering files for $scan_type_size from test data directories"
+        if [ "${DEBUG}" == "yes" ]; then
+            log_info "🔍 Discovering files for $scan_type_size from test data directories"
+        fi
 
         # Determine project root for file discovery
         local project_root="${LOCAL_TEST_DATA_DIR}/SCASS"
@@ -94,11 +102,15 @@ execute_scan() {
 
         # Discover files based on scan type and size
         if discover_scan_files "$scan_type" "$scan_type_size" "$project_root" "${SNIPPETS:-no}"; then
-            log_success "File discovery completed: ${#DISCOVERED_FILES[@]} files available"
+            if [ "${DEBUG}" == "yes" ]; then
+                log_success "File discovery completed: ${#DISCOVERED_FILES[@]} files available"
+            fi
 
             # Select files for this specific scan
             if select_files_for_scan "$scan_type" "$scan_type_size" "${RANDOM_SCANS:-no}"; then
-                log_info "Selected ${#SELECTED_PROJECT_FILES[@]} files for scan"
+                if [ "${DEBUG}" == "yes" ]; then
+                    log_info "Selected ${#SELECTED_PROJECT_FILES[@]} files for scan"
+                fi
             else
                 log_warning "File selection failed, falling back to file preparation"
             fi
@@ -113,21 +125,71 @@ execute_scan() {
 
     # If files were discovered and selected, use them directly
     if [ -n "${SELECTED_PROJECT_FILES[*]}" ] && [ ${#SELECTED_PROJECT_FILES[@]} -gt 0 ]; then
-        log_info "Using discovered files for scan (${#SELECTED_PROJECT_FILES[@]} files)"
+        if [ "${DEBUG}" == "yes" ]; then
+            log_info "Using discovered files for scan (${#SELECTED_PROJECT_FILES[@]} files)"
+        fi
 
         # Create symbolic links or copy files to scan directory
         local linked_count=0
+        local total_size_bytes=0
+        local file_list=()
         for source_file in "${SELECTED_PROJECT_FILES[@]}"; do
             if [ -f "$source_file" ]; then
                 local filename=$(basename "$source_file")
                 if ln -sf "$source_file" "$scan_dir/$filename" 2>/dev/null; then
                     ((linked_count++))
+                    # Calculate file size (cross-platform)
+                    local file_size
+                    if command -v stat >/dev/null 2>&1; then
+                        # Try macOS format first, then Linux format
+                        file_size=$(stat -f%z "$source_file" 2>/dev/null || stat -c%s "$source_file" 2>/dev/null || echo 0)
+                    else
+                        file_size=0
+                    fi
+                    total_size_bytes=$((total_size_bytes + file_size))
+
+                    # Store filename and path for logging
+                    if [ "${DEBUG}" == "yes" ]; then
+                        file_list+=("$source_file")
+                    else
+                        file_list+=("$filename")
+                    fi
                 fi
             fi
         done
 
         if [ "$linked_count" -gt 0 ]; then
-            log_success "Prepared $linked_count files using symbolic links"
+            # Format size for display (human-readable)
+            local total_size_display
+            if [ "$total_size_bytes" -ge 1073741824 ]; then
+                # GB
+                total_size_display="$(awk "BEGIN {printf \"%.2f\", $total_size_bytes/1073741824}")GB"
+            elif [ "$total_size_bytes" -ge 1048576 ]; then
+                # MB
+                total_size_display="$(awk "BEGIN {printf \"%.2f\", $total_size_bytes/1048576}")MB"
+            elif [ "$total_size_bytes" -ge 1024 ]; then
+                # KB
+                total_size_display="$(awk "BEGIN {printf \"%.2f\", $total_size_bytes/1024}")KB"
+            else
+                # Bytes
+                total_size_display="${total_size_bytes}B"
+            fi
+
+            # Concise summary for non-DEBUG mode
+            if [ "${DEBUG}" != "yes" ]; then
+                log_info "   Files: $linked_count ($total_size_display) | Code location: $scan_dir"
+                # List filenames concisely
+                local file_names_str=$(printf ", %s" "${file_list[@]}")
+                file_names_str=${file_names_str:2}  # Remove leading ", "
+                log_info "   └─ Files: $file_names_str"
+            else
+                log_success "Prepared $linked_count files using symbolic links (Total size: $total_size_display)"
+                # List full paths in DEBUG mode
+                log_info "Selected files:"
+                for file_path in "${file_list[@]}"; do
+                    log_info "  • $file_path"
+                done
+            fi
         else
             log_error "Failed to link discovered files, falling back to file preparation"
             if ! prepare_scan_files "$scan_dir" "$scan_type" "$scan_size" "$scan_type_size"; then
@@ -155,7 +217,9 @@ execute_scan() {
         start_parallel_job "$job_name" "$scan_command" "$log_file"
     else
         # Execute synchronously
-        log_info "Starting synchronous scan execution"
+        if [ "${DEBUG}" == "yes" ]; then
+            log_info "Starting synchronous scan execution"
+        fi
         local start_time=$(date +%s)
         
         if eval "$scan_command"; then
@@ -356,25 +420,23 @@ run_scan_batch() {
             fi
 
             # Determine if we should run this scan in foreground (sequential) or background (overflow)
-            # Strategy: Always try foreground first, use background only if we'd block the next cadence
+            # Strategy: Use background for ALL scans to maintain cadence control
+            # The "sequential with overflow" means we try to have one primary scan, but if it
+            # blocks the next cadence, we start the next scan in an overflow slot
 
-            local use_overflow=false
+            local use_overflow=true  # ALWAYS use background/overflow in this mode
             local next_scan_expected=$((current_time + TARGET_DURATION))
 
-            # Check if there's a next scan coming and estimate if this scan might block it
+            # Check if there's a next scan coming
             if [ "$current_scan" -lt "$max_scans" ]; then
-                # If we have overflow capacity AND might block next cadence, use overflow slot
+                # Check if we have overflow capacity
                 if [ "$running_count" -lt "${MAX_PARALLEL_JOBS:-3}" ]; then
                     # We have overflow capacity available
-                    # Decision: Use overflow slot so we don't block the main sequential flow
-                    if [ "$running_count" -gt 0 ]; then
-                        # Already have background scans, add this one to background too
-                        use_overflow=true
-                        log_info "🔀 Overflow mode: Running scan $current_scan in background (freeing main thread)"
+                    use_overflow=true
+                    if [ "$running_count" -eq 0 ]; then
+                        log_info "▶️  Sequential mode: Starting scan $current_scan in background (primary)"
                     else
-                        # No background scans yet - run in foreground (sequential)
-                        use_overflow=false
-                        log_info "▶️  Sequential mode: Running scan $current_scan in foreground"
+                        log_info "🔀 Overflow mode: Starting scan $current_scan in background (slot $((running_count + 1))/${MAX_PARALLEL_JOBS:-3})"
                     fi
                 else
                     # All overflow slots full - MUST wait for one to complete
@@ -383,41 +445,22 @@ run_scan_batch() {
                     wait_for_parallel_slot 0  # Wait indefinitely - no timeout, no skipping
                     running_count=$(get_running_job_count)
                     log_info "✅ Overflow slot freed - continuing"
-                    use_overflow=false  # Run in foreground now
-                    log_info "▶️  Sequential mode: Running scan $current_scan in foreground"
+                    use_overflow=true
+                    log_info "▶️  Sequential mode: Starting scan $current_scan in background (primary)"
                 fi
             else
-                # Last scan - run in foreground
-                use_overflow=false
-                log_info "▶️  Final scan: Running scan $current_scan in foreground"
+                # Last scan - still use background for consistency
+                use_overflow=true
+                log_info "▶️  Final scan: Starting scan $current_scan in background"
             fi
 
-            # Execute based on decision
+            # Execute in background (overflow slot)
             local scan_id="scan_${current_scan}"
-            if [ "$use_overflow" = true ]; then
-                # Use overflow: execute in background (parallel slot)
-                log_info "🚀 Starting scan $current_scan in background overflow slot"
-                if ! execute_scan "$scan_config" "$scan_id"; then
-                    log_error "Scan $current_scan failed to start"
-                fi
-                # Continue immediately to next scan (overflow scan runs in background)
-            else
-                # Sequential: execute in foreground and WAIT for completion
-                log_info "🚀 Starting scan $current_scan in foreground (sequential)"
-
-                # Temporarily disable parallel mode to force synchronous execution
-                local saved_parallel="${PARALLEL_SCANS}"
-                PARALLEL_SCANS="no"
-
-                if ! execute_scan "$scan_config" "$scan_id"; then
-                    log_error "Scan $current_scan failed"
-                fi
-
-                # Restore parallel mode
-                PARALLEL_SCANS="$saved_parallel"
-
-                log_success "Scan $current_scan completed"
+            log_info "🚀 Starting scan $current_scan in background"
+            if ! execute_scan "$scan_config" "$scan_id"; then
+                log_error "Scan $current_scan failed to start"
             fi
+            # Continue immediately to next cadence check (scan runs in background)
         else
             # PURE SEQUENTIAL MODE - original behavior
             local scan_id="scan_${current_scan}"

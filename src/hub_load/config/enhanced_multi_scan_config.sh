@@ -330,14 +330,22 @@ get_available_scan_types() {
 # Function to select scan type with size based on weighted distribution
 select_scan_type_with_size() {
     local use_gcs="${USE_GCS:-no}"
-    
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🎲 SCAN TYPE SELECTION PROCESS" >&2
+
+    # Verbose logging only in DEBUG mode
+    if [ "${DEBUG}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: SCAN TYPE SELECTION PROCESS" >&2
+    fi
+
     local unified_config=$(get_unified_scan_config)
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Unified config: $unified_config" >&2
-    
+    if [ "${DEBUG}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Unified config: $unified_config" >&2
+    fi
+
     # Check available scan types with files
     local available_types=($(get_available_scan_types "$use_gcs"))
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Available scan types with files: ${#available_types[@]}" >&2
+    if [ "${DEBUG}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Available scan types with files: ${#available_types[@]}" >&2
+    fi
     
     if [ ${#available_types[@]} -eq 0 ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  No scan types have available files!" >&2
@@ -371,17 +379,23 @@ select_scan_type_with_size() {
         fi
     done
     
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Available config: $available_config" >&2
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Total available weight: $total_available_weight" >&2
-    
+    if [ "${DEBUG}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Available config: $available_config" >&2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Total available weight: $total_available_weight" >&2
+    fi
+
     if [[ $total_available_weight -eq 0 ]]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -   • No weights for available types, using first available" >&2
+        if [ "${DEBUG}" == "yes" ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: No weights for available types, using first available" >&2
+        fi
         echo "${available_types[0]}"
         return 0
     fi
-    
+
     local random_num=$((RANDOM % total_available_weight))
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Random number: $random_num (range: 0-$((total_available_weight-1)))" >&2
+    if [ "${DEBUG}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Random number: $random_num (range: 0-$((total_available_weight-1)))" >&2
+    fi
     local cumulative=0
     
     IFS=',' read -ra PAIRS <<< "$available_config"
@@ -391,17 +405,26 @@ select_scan_type_with_size() {
             local scan_type_size="${SPLIT[0]}"
             local weight="${SPLIT[1]}"
             cumulative=$((cumulative + weight))
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   • Checking $scan_type_size (weight: $weight, cumulative: $cumulative)" >&2
+            if [ "${DEBUG}" == "yes" ]; then
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: Checking $scan_type_size (weight: $weight, cumulative: $cumulative)" >&2
+            fi
             if [[ $random_num -lt $cumulative ]]; then
-                echo "$(date '+%Y-%m-%d %H:%M:%S') -   ✅ Selected: $scan_type_size" >&2
+                # Always log the selected scan type (not debug-only)
+                if [ "${DEBUG}" != "yes" ]; then
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Selected: $scan_type_size" >&2
+                else
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ✅ Selected: $scan_type_size" >&2
+                fi
                 echo "$scan_type_size"
                 return 0
             fi
         fi
     done
-    
+
     # Fallback to first available
-    echo "$(date '+%Y-%m-%d %H:%M:%S') -   ⚠️  No match found, using first available: ${available_types[0]}" >&2
+    if [ "${DEBUG}" == "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ⚠️  No match found, using first available: ${available_types[0]}" >&2
+    fi
     echo "${available_types[0]}"
 }
 
@@ -497,11 +520,61 @@ get_component_count_by_size() {
     esac
 }
 
+# Function to get file count for a scan type
+get_file_count_for_scan_type() {
+    local scan_type_size="$1"
+    local use_gcs="${USE_GCS:-no}"
+
+    if [ "$use_gcs" == "yes" ]; then
+        # For GCS, we can't easily count without mounting
+        echo "N/A"
+        return 0
+    fi
+
+    # For local files, check if directory exists and has files
+    local local_dir=$(get_local_directory_for_scan_type "$scan_type_size")
+
+    if [ ! -d "$local_dir" ]; then
+        echo "0"
+        return 1
+    fi
+
+    # Parse scan type to determine file patterns
+    local scan_info=($(parse_scan_type_and_size "$scan_type_size"))
+    local scan_type="${scan_info[0]}"
+
+    local file_count=0
+    case "$scan_type" in
+        "SIGNATURE_SCAN")
+            if [[ "$scan_type_size" == "SNIPPET_SCAN"* ]]; then
+                file_count=$(find "$local_dir" -name "*.tar.gz" -type f 2>/dev/null | wc -l | tr -d ' ')
+            else
+                file_count=$(find "$local_dir" \( -name "*.jar" -o -name "*.zip" \) -type f 2>/dev/null | wc -l | tr -d ' ')
+            fi
+            ;;
+        "SNIPPET_SCAN")
+            # Snippet scans use tar.gz files
+            file_count=$(find "$local_dir" -name "*.tar.gz" -type f 2>/dev/null | wc -l | tr -d ' ')
+            ;;
+        "BINARY_SCAN")
+            file_count=$(find "$local_dir" \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.lib" -o -name "*.rpm" -o -name "*.deb" -o -name "*.msi" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) -type f 2>/dev/null | wc -l | tr -d ' ')
+            ;;
+        "CONTAINER_SCAN")
+            file_count=$(find "$local_dir" -name "*.tar" -type f 2>/dev/null | wc -l | tr -d ' ')
+            ;;
+        *)
+            file_count=0
+            ;;
+    esac
+
+    echo "$file_count"
+}
+
 # Function to get expected scan distribution for a given total scan count
 get_expected_distribution() {
     local total_scans="${1:-100}"
     local config_to_use=""
-    
+
     if [ "$total_scans" -lt "$SCAN_COUNT_THRESHOLD" ]; then
         config_to_use="$SMALL_SCAN_CONFIG"
         echo "Expected distribution for $total_scans scans (using SMALL_SCAN_CONFIG):"
@@ -509,7 +582,7 @@ get_expected_distribution() {
         config_to_use="$MULTI_SCAN_CONFIG"
         echo "Expected distribution for $total_scans scans (using MULTI_SCAN_CONFIG):"
     fi
-    
+
     IFS=',' read -ra PAIRS <<< "$config_to_use"
     for pair in "${PAIRS[@]}"; do
         IFS=':' read -ra SPLIT <<< "$pair"
@@ -521,7 +594,18 @@ get_expected_distribution() {
             if [ $remainder -ge 50 ]; then
                 expected_count=$((expected_count + 1))
             fi
-            printf "  %-25s: %3d%% = ~%2d scans\n" "$scan_type_size" "$percentage" "$expected_count"
+
+            # Get file count for this scan type
+            local file_count=$(get_file_count_for_scan_type "$scan_type_size")
+
+            # Format output with file count
+            if [ "$file_count" = "N/A" ]; then
+                printf "  %-25s: %3d%% = ~%2d scans [GCS]\n" "$scan_type_size" "$percentage" "$expected_count"
+            elif [ "$file_count" -eq 0 ]; then
+                printf "  %-25s: %3d%% = ~%2d scans [❌ NO FILES]\n" "$scan_type_size" "$percentage" "$expected_count"
+            else
+                printf "  %-25s: %3d%% = ~%2d scans [✅ %s files]\n" "$scan_type_size" "$percentage" "$expected_count" "$file_count"
+            fi
         fi
     done
     echo ""

@@ -72,21 +72,84 @@ load_config() {
     if [ "${ENHANCED_MULTI_SCAN:-yes}" == "yes" ]; then
         load_enhanced_config
     fi
-    
-    # Set defaults
-    export SCAN_TYPE="${SCAN_TYPE:-$DEFAULT_SCAN_TYPE}"
-    export MAX_SCANS="${MAX_SCANS:-$DEFAULT_MAX_SCANS}"
-    export MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-$DEFAULT_MAX_PARALLEL_JOBS}"
+
+    # Set defaults - matching monolithic submit_scans_fixed.sh exactly
+    export BD_HUB_URL="${BD_HUB_URL:-https:///}"
+    export API_TOKEN="${API_TOKEN:-NTE2==}"
+    export API_TIMEOUT="${API_TIMEOUT:-300}"
+    export MAX_SCANS="${MAX_SCANS:-3}"
+    export MAX_CODELOCATIONS="${MAX_CODELOCATIONS:-1}"
+    export MAX_COMPONENTS="${MAX_COMPONENTS:-400}"
+    export MIN_COMPONENTS="${MIN_COMPONENTS:-200}"
+    export MAX_VERSIONS="${MAX_VERSIONS:-1}"
+    export SYNCHRONOUS_SCANS="${SYNCHRONOUS_SCANS:-no}"
     export PARALLEL_SCANS="${PARALLEL_SCANS:-no}"
+    export MAX_PARALLEL_JOBS="${MAX_PARALLEL_JOBS:-3}"
+    export REPEAT_SCAN="${REPEAT_SCAN:-no}"
+    export RANDOM_SCANS="${RANDOM_SCANS:-no}"
+    export DETECT_VERSION="${DETECT_VERSION}"
+    export FAIL_ON_SEVERITIES="${FAIL_ON_SEVERITIES}"
+    export INSECURE_CURL="${INSECURE_CURL:-no}"
+    export STRING_SEARCH="${STRING_SEARCH:-no}"
     export DEBUG="${DEBUG:-no}"
-    export USE_MEMORY_MAPPING="${USE_MEMORY_MAPPING:-yes}"
     export DRY_RUN="${DRY_RUN:-no}"
-    export SYNCHRONOUS_SCANS="${SYNCHRONOUS_SCANS:-yes}"
-    export TEST_DURATION="${TEST_DURATION:-$DEFAULT_TEST_DURATION}"
-    
+    export SCAN_TYPE="${SCAN_TYPE:-SIGNATURE_SCAN}"
+    export SNIPPETS="${SNIPPETS:-no}"
+
+    # Set FIXED_COMPONENTS default based on scan type
+    # Binary and container scans use 1 file, signature scans use 2 files by default
+    if [ -z "${FIXED_COMPONENTS}" ]; then
+        if [ "${SCAN_TYPE}" == "BINARY_SCAN" ] || [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+            export FIXED_COMPONENTS=1
+        else
+            export FIXED_COMPONENTS=2
+        fi
+    else
+        export FIXED_COMPONENTS="${FIXED_COMPONENTS}"
+    fi
+    export WAIT_TIME="${WAIT_TIME:-30}"
+    # Memory mapping validated: 27.5% faster, 9.3% memory overhead, excellent for large datasets
+    export USE_MEMORY_MAPPING="${USE_MEMORY_MAPPING:-yes}"
+    export USE_GCS="${USE_GCS:-no}"
+    export GCS_BUCKET="${GCS_BUCKET:-performance_test_bdios}"
+    export GCS_PREFIX="${GCS_PREFIX:-SCASS/SCA_NON_BDIOS_BINARY_SM_MEDIUM/}"
+
+    # Set LOCAL_TEST_DATA_DIR, respecting environment variable if set
+    if [ "${USE_GCS}" != "yes" ]; then
+        export LOCAL_TEST_DATA_DIR="${LOCAL_TEST_DATA_DIR:-../../../test-data}"
+    else
+        export LOCAL_TEST_DATA_DIR="${LOCAL_TEST_DATA_DIR:-${WORKDIR}/../../../test-data}"
+    fi
+
+    # Docker-friendly defaults - use volumes instead of /tmp for persistence
+    export GCS_MOUNT_POINT="${GCS_MOUNT_POINT:-/mnt/gcs-data}"
+    export GCS_CACHE_SIZE="${GCS_CACHE_SIZE:-10G}"
+    export LOG_DIR="${LOG_DIR:-/app/logs}"
+    export GCS_CACHE_DIR="${GCS_CACHE_DIR:-/app/temp/gcs-cache}"
+
+    # Multi-scan configuration
+    export ENABLE_MULTI_SCAN="${ENABLE_MULTI_SCAN:-no}"
+    export ENABLE_ENHANCED_MULTI_SCAN="${ENABLE_ENHANCED_MULTI_SCAN:-no}"
+    export MULTI_SCAN_CONFIG="${MULTI_SCAN_CONFIG:-BINARY_SCAN:40,SIGNATURE_SCAN:35,CONTAINER_SCAN:25}"
+    export MULTI_GCS_CONFIG="${MULTI_GCS_CONFIG:-performance_test_bdios/SCASS/SCA_NON_BDIOS_BINARY_SM_MEDIUM:40,performance_test_bdios/SCASS/SCA_SIGNATURE_LARGE:35,performance_test_bdios/SCASS/SCA_CONTAINER_MIXED:25}"
+    export TEST_DURATION="${TEST_DURATION:-1}"
+    export TARGET_DURATION="${TARGET_DURATION:-0}"
+
     # Calculate scan cadence timing
     calculate_scan_timing
-    
+
+    # Set DETECT_VERSION and FAIL_ON_SEVERITIES defaults if not set
+    if [ -z "${DETECT_VERSION}" ]; then
+        export DETECT_VERSION="LATEST"
+    fi
+    if [ -z "${FAIL_ON_SEVERITIES}" ]; then
+        export FAIL_ON_SEVERITIES="NONE"
+    fi
+
+    # Set project defaults
+    export PROJECT="${PROJECT:-Project-$HOSTNAME}"
+    export TIMESTAMP="${TIMESTAMP:-$(date +%Y%m%d.%H%M%S)}"
+
     # Validate required parameters
     if [ -n "$BD_HUB_URL" ] && [ -n "$API_TOKEN" ]; then
         log_debug "MAX_SCANS=$MAX_SCANS, SCAN_TYPE=$SCAN_TYPE, PARALLEL_SCANS=$PARALLEL_SCANS"
