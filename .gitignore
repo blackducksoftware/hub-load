@@ -1,0 +1,54 @@
+# API Keys and Secrets
+*.key
+*.pem
+*.env
+.env
+.env.local
+credentials.json
+secrets.json
+
+# Claude Code local settings (contains auto-approval with API keys)
+.claude/settings.local.json
+
+# Logs that may contain sensitive data
+*.log
+/tmp/
+/logs/
+/app/logs/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Docker
+.dockerignore
+
+# Test outputs
+scans-*.log
+output.log
+
+# Backup files
+*.backup
+*.bak

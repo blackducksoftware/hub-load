@@ -5,16 +5,17 @@
 #
 
 # Configuration options
-USE_GCS=${USE_GCS:-yes}
+# Default to local files (no GCS) for easier development and testing
+USE_GCS=${USE_GCS:-no}
 
 # Test data directory configuration - supports NFS, Docker, and local environments
 # Priority order: 1) Environment variable 2) NFS path 3) Docker path 4) Relative path
 if [ -n "$LOCAL_TEST_DATA_DIR" ]; then
     # Use explicitly set environment variable (highest priority)
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Using explicitly set LOCAL_TEST_DATA_DIR: $LOCAL_TEST_DATA_DIR" >&2
-elif [ -d "/Users/karth/Library/CloudStorage/OneDrive-BlackDuckSoftware/Documents/Automation/blackducksoftware/hub-load/test-data/SCASS" ]; then
+elif [ -d "/Users/karth/Library/CloudStorage/OneDrive-BlackDuckSoftware/Documents/Automation/blackducksoftware/test-data/SCASS" ]; then
     # NFS path for your specific environment - CUSTOMIZE THIS PATH
-    LOCAL_TEST_DATA_DIR="/Users/karth/Library/CloudStorage/OneDrive-BlackDuckSoftware/Documents/Automation/blackducksoftware/hub-load/test-data"
+    LOCAL_TEST_DATA_DIR="/Users/karth/Library/CloudStorage/OneDrive-BlackDuckSoftware/Documents/Automation/blackducksoftware/test-data"
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Using NFS path: $LOCAL_TEST_DATA_DIR" >&2
 elif [ -d "/opt/blackduck/hub-load/test-data/SCASS" ]; then
     # Docker container path
@@ -384,7 +385,9 @@ initialize_scan_sequence() {
     fi
 
     # Calculate exact count for each scan type (matching get_expected_distribution rounding)
-    declare -A scan_type_counts
+    # Use parallel arrays for Bash 3.2 compatibility (no associative arrays)
+    local scan_type_names=()
+    local scan_type_count_values=()
 
     IFS=',' read -ra PAIRS <<< "$available_config"
     for pair in "${PAIRS[@]}"; do
@@ -402,14 +405,16 @@ initialize_scan_sequence() {
                 expected_count=$((expected_count + 1))
             fi
 
-            scan_type_counts[$scan_type_size]=$expected_count
+            # Store in parallel arrays (Bash 3.2 compatible)
+            scan_type_names+=("$scan_type_size")
+            scan_type_count_values+=("$expected_count")
         fi
     done
 
     # Build deterministic interleaved sequence using round-robin
     local sequence_array=()
     local max_count=0
-    for count in "${scan_type_counts[@]}"; do
+    for count in "${scan_type_count_values[@]}"; do
         if [ "$count" -gt "$max_count" ]; then
             max_count=$count
         fi
@@ -417,17 +422,16 @@ initialize_scan_sequence() {
 
     # Interleave scan types using round-robin to create mixed pattern
     for ((round=0; round<max_count; round++)); do
-        IFS=',' read -ra PAIRS <<< "$available_config"
-        for pair in "${PAIRS[@]}"; do
-            IFS=':' read -ra SPLIT <<< "$pair"
-            if [[ ${#SPLIT[@]} -eq 2 ]]; then
-                local scan_type_size="${SPLIT[0]}"
-                local count=${scan_type_counts[$scan_type_size]:-0}
+        # Iterate through each scan type
+        local idx=0
+        for scan_type_size in "${scan_type_names[@]}"; do
+            local count=${scan_type_count_values[$idx]}
 
-                if [ "$round" -lt "$count" ]; then
-                    sequence_array+=("$scan_type_size")
-                fi
+            if [ "$round" -lt "$count" ]; then
+                sequence_array+=("$scan_type_size")
             fi
+
+            ((idx++))
         done
     done
 
@@ -458,6 +462,8 @@ initialize_scan_sequence() {
 # Function to select scan type with size based on weighted distribution
 # Uses deterministic pre-calculated sequence to ensure exact distribution
 select_scan_type_with_size() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: 📍 Function: select_scan_type_with_size() [enhanced_multi_scan_config.sh:463]" >&2
+
     local use_gcs="${USE_GCS:-no}"
 
     # Verbose logging only in DEBUG mode
@@ -475,8 +481,55 @@ select_scan_type_with_size() {
 
     # Read current counter value (with file locking to prevent race conditions)
     local counter
-    (
-        flock -x 200
+
+    # Cross-platform locking: Use flock on Linux, fallback to mkdir-based lock on macOS
+    if command -v flock >/dev/null 2>&1; then
+        # Linux with flock
+        (
+            flock -x 200
+            counter=$(cat "$SCAN_COUNTER_FILE" 2>/dev/null || echo "0")
+
+            # Get total number of scans in sequence
+            local total_scans=$(wc -l < "$SCAN_SEQUENCE_FILE" 2>/dev/null || echo "1")
+
+            # Check if we've exhausted the sequence
+            if [ "$counter" -ge "$total_scans" ]; then
+                # Restart from beginning (for cases where MAX_SCANS > sequence length)
+                counter=0
+            fi
+
+            # Get scan type from sequence file (1-indexed sed)
+            local selected_scan_type=$(sed -n "$((counter + 1))p" "$SCAN_SEQUENCE_FILE")
+
+            # Increment counter for next call
+            echo "$((counter + 1))" > "$SCAN_COUNTER_FILE"
+
+            # Always log the selected scan type (not debug-only)
+            if [ "${DEBUG}" != "yes" ]; then
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Selected: $selected_scan_type" >&2
+            else
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ✅ Selected: $selected_scan_type (position: $counter/$total_scans)" >&2
+            fi
+
+            echo "$selected_scan_type"
+        ) 200>"$SCAN_COUNTER_FILE.lock"
+    else
+        # macOS fallback: Use mkdir-based locking (atomic operation)
+        local lockdir="$SCAN_COUNTER_FILE.lock"
+        local max_wait=10
+        local waited=0
+
+        # Wait for lock (mkdir is atomic)
+        while ! mkdir "$lockdir" 2>/dev/null; do
+            sleep 0.1
+            waited=$((waited + 1))
+            if [ $waited -gt $max_wait ]; then
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - ⚠️  WARNING: Lock timeout, proceeding anyway" >&2
+                break
+            fi
+        done
+
+        # Critical section
         counter=$(cat "$SCAN_COUNTER_FILE" 2>/dev/null || echo "0")
 
         # Get total number of scans in sequence
@@ -501,8 +554,11 @@ select_scan_type_with_size() {
             echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔍 DEBUG: ✅ Selected: $selected_scan_type (position: $counter/$total_scans)" >&2
         fi
 
+        # Release lock
+        rmdir "$lockdir" 2>/dev/null || true
+
         echo "$selected_scan_type"
-    ) 200>"$SCAN_COUNTER_FILE.lock"
+    fi
 
     return 0
 }

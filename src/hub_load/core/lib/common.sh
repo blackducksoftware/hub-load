@@ -68,6 +68,8 @@ validate_scan_type() {
 
 # Configuration loading and validation
 load_config() {
+    log_debug "📍 Function: load_config() [common.sh:70]"
+
     # Load enhanced multi-scan configuration first (optional)
     if [ "${ENHANCED_MULTI_SCAN:-yes}" == "yes" ]; then
         load_enhanced_config
@@ -102,7 +104,7 @@ load_config() {
         if [ "${SCAN_TYPE}" == "BINARY_SCAN" ] || [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
             export FIXED_COMPONENTS=1
         else
-            export FIXED_COMPONENTS=2
+            export FIXED_COMPONENTS="${FIXED_COMPONENTS}:-2"
         fi
     else
         export FIXED_COMPONENTS="${FIXED_COMPONENTS}"
@@ -124,7 +126,18 @@ load_config() {
     # Docker-friendly defaults - use volumes instead of /tmp for persistence
     export GCS_MOUNT_POINT="${GCS_MOUNT_POINT:-/mnt/gcs-data}"
     export GCS_CACHE_SIZE="${GCS_CACHE_SIZE:-10G}"
-    export LOG_DIR="${LOG_DIR:-/app/logs}"
+
+    # Platform-aware LOG_DIR: use /app/logs in Docker, /tmp/hub_load_logs on macOS/local
+    if [ -z "$LOG_DIR" ]; then
+        if [ -d "/app" ] && [ -w "/app" ]; then
+            export LOG_DIR="/app/logs"
+        else
+            export LOG_DIR="/tmp/hub_load_logs"
+        fi
+    else
+        export LOG_DIR="$LOG_DIR"
+    fi
+
     export GCS_CACHE_DIR="${GCS_CACHE_DIR:-/app/temp/gcs-cache}"
 
     # Multi-scan configuration
@@ -204,8 +217,10 @@ calculate_scan_timing() {
 
 # Load enhanced multi-scan configuration
 load_enhanced_config() {
+    log_debug "📍 Function: load_enhanced_config() [common.sh:208]"
+
     local enhanced_config_path="$CONFIG_DIR/enhanced_multi_scan_config.sh"
-    
+
     if [ -f "$enhanced_config_path" ]; then
         log_info "Loading enhanced multi-scan configuration..."
         source "$enhanced_config_path"
@@ -285,6 +300,8 @@ calculate_wait_time() {
 
 # Java detection and setup
 check_java() {
+    log_debug "📍 Function: check_java() [common.sh:287]"
+
     if ! command -v java >/dev/null 2>&1; then
         log_warning "Java not found in PATH, attempting to locate and configure Java..."
         

@@ -33,8 +33,10 @@ SNIPPET_SCAN_XLARGE_COUNT=0
 
 # Initialize scan manager
 init_scan_manager() {
+    log_debug "📍 Function: init_scan_manager() [scan_manager.sh:35]"
+
     log_info "Initializing scan manager"
-    
+
     # Reset counters
     SIGNATURE_SCAN_COUNT=0
     BINARY_SCAN_COUNT=0
@@ -66,8 +68,10 @@ init_scan_manager() {
     return 0
 }
 
-# Execute a single scan
+# Execute a single scan with support for multiple versions and codelocations
 execute_scan() {
+    log_debug "📍 Function: execute_scan() [scan_manager.sh:71]"
+
     local scan_config="$1"
     local scan_id="$2"
 
@@ -83,21 +87,8 @@ execute_scan() {
     # Set snippets flag (default to "no" if not provided for backward compatibility)
     snippets="${snippets:-no}"
 
-    # Determine log file path for this scan
-    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
-    local scan_timestamp=$(date '+%H%M%S')
-    local log_file="${log_dir}/${scan_id}_${scan_type_size}.log"
-
-    # Concise summary logged only when NOT in DEBUG mode
-    # In DEBUG mode, detailed logs will show everything
-    if [ "${DEBUG}" != "yes" ]; then
-        log_info "🚀 Scan: $scan_type_size | Project: $project_name | Version: 1.0"
-        # Send log file path to stdout for Jenkins console
-        echo "$(date '+%Y-%m-%d %H:%M:%S') -    📄 Log: $log_file"
-    else
-        log_info "Executing scan: $scan_type for project $project_name (size: $scan_size, snippets: $snippets)"
-        log_info "Log file: $log_file"
-    fi
+    # Determine number of versions to create (matching legacy behavior)
+    local num_versions=${MAX_VERSIONS:-1}
 
     # Discover files from test data directories if enhanced mode is enabled
     if [ "${ENHANCED_MULTI_SCAN}" == "yes" ] && [ -n "$scan_type_size" ]; then
@@ -130,8 +121,104 @@ execute_scan() {
         fi
     fi
 
-    # Prepare scan environment
-    local scan_dir="/tmp/scan_${scan_id}_$$"
+    # Loop through versions (matching legacy script behavior)
+    for ((version=1; version<=num_versions; version++)); do
+        if [ "$num_versions" -gt 1 ] && [ "${DEBUG}" == "yes" ]; then
+            log_info "Processing version $version of $num_versions"
+        fi
+
+        # Loop through codelocations (matching legacy script behavior)
+        local num_codelocations=${MAX_CODELOCATIONS:-1}
+        for ((cl=1; cl<=num_codelocations; cl++)); do
+            if [ "$num_codelocations" -gt 1 ] && [ "${DEBUG}" == "yes" ]; then
+                log_info "Processing codelocation $cl of $num_codelocations"
+            fi
+
+            # Execute single scan for this version/codelocation combination
+            execute_single_scan "$scan_config" "$scan_id" "$version" "$cl" "$snippets"
+        done
+    done
+
+    return 0
+}
+
+# Write scan metadata to file for later reporting
+write_scan_metadata() {
+    local metadata_file="$1"
+    local scan_id="$2"
+    local project_name="$3"
+    local version_name="$4"
+    local cl_name="$5"
+    local scan_type_size="$6"
+    local files_list="$7"
+    local scan_start_time="$8"
+
+    cat > "$metadata_file" <<EOF
+SCAN_ID=$scan_id
+PROJECT_NAME=$project_name
+VERSION_NAME=$version_name
+CODELOCATION_NAME=$cl_name
+SCAN_TYPE_SIZE=$scan_type_size
+FILES_USED=$files_list
+SCAN_START_TIME=$scan_start_time
+SCAN_START_TIMESTAMP=$(date -r "$scan_start_time" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "@$scan_start_time" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "N/A")
+EOF
+}
+
+# Execute a single scan for a specific version and codelocation
+execute_single_scan() {
+    local scan_config="$1"
+    local scan_id="$2"
+    local version="$3"
+    local codelocation_num="$4"
+    local snippets="$5"
+
+    # Parse scan configuration
+    local scan_type project_name scan_size scan_type_size
+    IFS='|' read -r scan_type project_name scan_size scan_type_size _ <<< "$scan_config"
+
+    # Generate timestamp for this specific scan (HHMMSS format for tracking)
+    local scan_timestamp=$(date '+%H%M%S')
+    local scan_date=$(date '+%d%m%Y')
+    local full_timestamp=$(date '+%Y%m%d-%H%M%S')
+    local scan_start_epoch=$(date +%s)
+
+    # Generate version name with timestamp for easy tracking (format: v1-YYYYMMDD-HHMMSS)
+    local version_name="v${version}-${full_timestamp}"
+
+    # Determine log file path for this scan with detailed timestamp
+    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
+
+    # Ensure log directory exists before writing files
+    mkdir -p "$log_dir"
+
+    local log_file="${log_dir}/${scan_id}_v${version}_cl${codelocation_num}_${scan_timestamp}_${scan_type_size}.log"
+    local metadata_file="${log_dir}/${scan_id}_v${version}_cl${codelocation_num}_${scan_timestamp}_${scan_type_size}.meta"
+
+    # Generate codelocation name with randomization and timestamp for easy tracking
+    local cl_random=$RANDOM
+    local container_id=$(hostname 2>/dev/null || echo "local")
+    local cl_name
+    if [ "${scan_type}" == "BINARY_SCAN" ]; then
+        cl_name="${container_id}-binary-cl-${codelocation_num}-${cl_random}-${scan_date}"
+    elif [ "${scan_type}" == "CONTAINER_SCAN" ]; then
+        cl_name="${container_id}-container-cl-${codelocation_num}-${cl_random}-${scan_date}"
+    else
+        cl_name="${container_id}-cl-${codelocation_num}-${cl_random}-${scan_date}"
+    fi
+
+    # Concise summary logged only when NOT in DEBUG mode
+    if [ "${DEBUG}" != "yes" ]; then
+        log_info "🚀 Scan: $scan_type_size | Project: $project_name | Version: $version_name | CL: $cl_name"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -    📄 Log: $log_file"
+    else
+        log_info "Executing scan: $scan_type for project $project_name (version: $version_name, codelocation: $cl_name, size: $scan_size, snippets: $snippets)"
+        log_info "Log file: $log_file"
+    fi
+
+    # Prepare scan environment with Project/cl-X/source structure
+    local base_scan_dir="/tmp/scan_${scan_id}_$$"
+    local scan_dir="${base_scan_dir}/${project_name}/cl-${codelocation_num}/source"
     mkdir -p "$scan_dir"
 
     # If files were discovered and selected, use them directly
@@ -186,6 +273,13 @@ execute_scan() {
                 total_size_display="${total_size_bytes}B"
             fi
 
+            # Prepare file list for metadata (comma-separated basenames)
+            local files_metadata=$(printf ",%s" "${file_list[@]}")
+            files_metadata="${files_metadata:1}"  # Remove leading comma
+
+            # Write scan metadata for later reporting
+            write_scan_metadata "$metadata_file" "$scan_id" "$project_name" "$version_name" "$cl_name" "$scan_type_size" "$files_metadata" "$scan_start_epoch"
+
             # Concise summary for non-DEBUG mode
             if [ "${DEBUG}" != "yes" ]; then
                 log_info "   Files: $linked_count ($total_size_display) | Code location: $scan_dir"
@@ -202,29 +296,66 @@ execute_scan() {
                 done
             fi
         else
-            log_error "Failed to link discovered files, falling back to file preparation"
-            if ! prepare_scan_files "$scan_dir" "$scan_type" "$scan_size" "$scan_type_size"; then
-                log_error "Failed to prepare scan files"
-                return 1
-            fi
-        fi
-    else
-        # Fallback to synthetic file preparation
-        if ! prepare_scan_files "$scan_dir" "$scan_type" "$scan_size" "$scan_type_size"; then
-            log_error "Failed to prepare scan files"
+            log_error "═══════════════════════════════════════════════════════════"
+            log_error "❌ SCAN FAILED: Unable to link discovered files to scan directory"
+            log_error "═══════════════════════════════════════════════════════════"
+            log_error "Scan Type: ${scan_type_size}"
+            log_error "Scan Directory: ${scan_dir}"
+            log_error ""
+            log_error "This usually indicates:"
+            log_error "  • File permission issues"
+            log_error "  • Filesystem doesn't support symbolic links"
+            log_error "  • Source files were deleted or moved"
+            log_error ""
+            log_error "Check file permissions and ensure test data is accessible"
+            log_error "═══════════════════════════════════════════════════════════"
             return 1
         fi
+    else
+        # No files were discovered/selected
+        log_error "═══════════════════════════════════════════════════════════"
+        log_error "❌ SCAN FAILED: No test data files found"
+        log_error "═══════════════════════════════════════════════════════════"
+        log_error "Scan Type: ${scan_type_size}"
+        log_error "Scan Type Base: ${scan_type}"
+        log_error "LOCAL_TEST_DATA_DIR: ${LOCAL_TEST_DATA_DIR}"
+        log_error ""
+        log_error "Expected test data location:"
+        local expected_dir=$(get_local_directory_for_scan_type "$scan_type_size" 2>/dev/null || echo "${LOCAL_TEST_DATA_DIR}")
+        log_error "  ${expected_dir}"
+        log_error ""
+        log_error "Troubleshooting steps:"
+        log_error "  1. Verify LOCAL_TEST_DATA_DIR is set correctly"
+        log_error "  2. Check that test data directories exist:"
+        log_error "     ls -la ${LOCAL_TEST_DATA_DIR}/"
+        log_error "  3. Ensure test data files are present:"
+        log_error "     ls -la ${expected_dir}/"
+        log_error "  4. Verify file extensions match scan type (.tar for container, etc.)"
+        log_error "═══════════════════════════════════════════════════════════"
+        return 1
     fi
 
-    # Generate scan command
+    # Generate scan command with version and codelocation info
+    # For signature scans, use codelocation-level directory; for binary/container, use source directory
+    local cl_dir="${base_scan_dir}/${project_name}/cl-${codelocation_num}"
     local scan_command
-    scan_command=$(generate_scan_command "$scan_type" "$project_name" "$scan_dir")
-    
+    scan_command=$(generate_scan_command "$scan_type" "$project_name" "$scan_dir" "$cl_dir" "$version_name" "$cl_name")
+
+    # Print the complete Detect command for visibility
+    echo ""
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ═══════════════════════════════════════════════════════════"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 🔧 DETECT COMMAND ARGUMENTS:"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ═══════════════════════════════════════════════════════════"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ℹ️  SYNCHRONOUS_SCANS='${SYNCHRONOUS_SCANS}'"
+    echo "$scan_command" | sed 's/ --/\n  --/g'
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - ═══════════════════════════════════════════════════════════"
+    echo ""
+
     if [ "${PARALLEL_SCANS}" == "yes" ]; then
         # Execute in parallel
         local job_name="${scan_type}_${project_name}_${scan_id}"
         local log_file="${PARALLEL_LOG_DIR}/${job_name}.log"
-        
+
         start_parallel_job "$job_name" "$scan_command" "$log_file"
     else
         # Execute synchronously
@@ -232,7 +363,7 @@ execute_scan() {
             log_info "Starting synchronous scan execution"
         fi
         local start_time=$(date +%s)
-        
+
         if eval "$scan_command"; then
             local end_time=$(date +%s)
             local duration=$((end_time - start_time))
@@ -278,19 +409,32 @@ execute_scan() {
 
 # Generate scan command based on type
 generate_scan_command() {
+    log_debug "📍 Function: generate_scan_command() [scan_manager.sh:374]"
+
     local scan_type="$1"
     local project_name="$2"
     local scan_dir="$3"
-    
-    local base_command="cd '$scan_dir' && "
-    
+    local cl_dir="$4"
+    local version="$5"
+    local cl_name="$6"
+
+    # Change to codelocation directory for execution (matching legacy script)
+    local base_command="cd '$cl_dir' && "
+
     case "$scan_type" in
         SIGNATURE_SCAN)
             base_command+="bash <(curl -s -L https://detect.blackduck.com/detect.sh)"
             base_command+=" --blackduck.url='$BD_HUB_URL'"
             base_command+=" --blackduck.api.token='$API_TOKEN'"
+            base_command+=" --blackduck.trust.cert=true"
             base_command+=" --detect.project.name='$project_name'"
-            base_command+=" --detect.project.version.name='1.0'"
+            base_command+=" --detect.project.version.name='$version'"
+            base_command+=" --detect.code.location.name='$cl_name'"
+            base_command+=" --detect.timeout='$API_TIMEOUT'"
+            base_command+=" --detect.tools='SIGNATURE_SCAN'"
+            base_command+=" --detect.parallel.processors=-1"
+            base_command+=" --detect.source.path='$scan_dir'"
+            base_command+=" --detect.cleanup=true"
 
             # Add snippet-specific parameters if this is a snippet scan
             if [ "${SNIPPETS:-no}" == "yes" ]; then
@@ -298,17 +442,32 @@ generate_scan_command() {
                 base_command+=" --detect.blackduck.signature.scanner.upload.source.mode=true"
                 log_debug "Snippet scan parameters added: snippet.matching=SNIPPET_MATCHING, upload.source.mode=true"
             fi
+
+            if [ "${STRING_SEARCH}" == "yes" ]; then
+                base_command+=" --detect.blackduck.signature.scanner.license.search=true"
+                base_command+=" --detect.blackduck.signature.scanner.copyright.search=true"
+            fi
+
+            # Add debug logging if enabled
+            if [ "${DEBUG}" == "yes" ]; then
+                base_command+=" --logging.level.detect=TRACE"
+            fi
             ;;
         BINARY_SCAN)
             # Get first binary file from scan directory (follow symlinks with -L)
-            local binary_file=$(find -L "$scan_dir" -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.lib" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" \) 2>/dev/null | head -1)
+            local binary_file=$(find -L "$scan_dir" -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg" -o -name "*.lib" -o -name "*.cab" -o -name "*.img" -o -name "*.iso" -o -name "*.vmdk" -o -name "*.ova" -o -name "*.vdi" -o -name "*.ubifs" -o -name "*.tar.gz" -o -name "*.tgz" \) 2>/dev/null | head -1)
 
             base_command+="bash <(curl -s -L https://detect.blackduck.com/detect.sh)"
             base_command+=" --blackduck.url='$BD_HUB_URL'"
             base_command+=" --blackduck.api.token='$API_TOKEN'"
+            base_command+=" --blackduck.trust.cert=true"
             base_command+=" --detect.project.name='$project_name'"
-            base_command+=" --detect.project.version.name='1.0'"
+            base_command+=" --detect.project.version.name='$version'"
+            base_command+=" --detect.code.location.name='$cl_name'"
+            base_command+=" --detect.timeout='$API_TIMEOUT'"
             base_command+=" --detect.tools='BINARY_SCAN'"
+            base_command+=" --detect.parallel.processors=-1"
+            base_command+=" --detect.cleanup=true"
 
             # Add binary scan file path if found
             if [ -n "$binary_file" ]; then
@@ -316,6 +475,11 @@ generate_scan_command() {
                 log_debug "Binary scan will upload: $binary_file"
             else
                 log_warning "No binary file found in $scan_dir for binary scan"
+            fi
+
+            # Add debug logging if enabled
+            if [ "${DEBUG}" == "yes" ]; then
+                base_command+=" --logging.level.detect=TRACE"
             fi
             ;;
         CONTAINER_SCAN)
@@ -325,16 +489,25 @@ generate_scan_command() {
             base_command+="bash <(curl -s -L https://detect.blackduck.com/detect.sh)"
             base_command+=" --blackduck.url='$BD_HUB_URL'"
             base_command+=" --blackduck.api.token='$API_TOKEN'"
+            base_command+=" --blackduck.trust.cert=true"
             base_command+=" --detect.project.name='$project_name'"
-            base_command+=" --detect.project.version.name='1.0'"
+            base_command+=" --detect.project.version.name='$version'"
+            base_command+=" --detect.timeout='$API_TIMEOUT'"
             base_command+=" --detect.tools='CONTAINER_SCAN'"
+            base_command+=" --detect.cleanup=true"
 
-            # Add container image path if found
+            # Add container image path if found (using legacy parameter name)
             if [ -n "$container_file" ]; then
-                base_command+=" --detect.docker.tar='$container_file'"
+                base_command+=" --detect.container.scan.file.path='$container_file'"
                 log_debug "Container scan will analyze: $container_file"
             else
                 log_warning "No container tar file found in $scan_dir for container scan"
+            fi
+
+            # Add debug logging if enabled
+            if [ "${DEBUG}" == "yes" ]; then
+                base_command+=" --logging.level.detect=TRACE"
+                base_command+=" --detect.diagnostic=true"
             fi
             ;;
         *)
@@ -342,18 +515,30 @@ generate_scan_command() {
             return 1
             ;;
     esac
-    
+
+    # Add synchronous scan support (common to all scan types)
+    if [ "${SYNCHRONOUS_SCANS}" == "yes" ]; then
+        base_command+=" --detect.wait.for.results=true"
+    fi
+
+    # Add failure on severities if specified (common to all scan types)
+    if [ "${FAIL_ON_SEVERITIES}" != "NONE" ] && [ -n "${FAIL_ON_SEVERITIES}" ]; then
+        base_command+=" --detect.policy.check.fail.on.severities='$FAIL_ON_SEVERITIES'"
+    fi
+
     echo "$base_command"
 }
 
 # Run multiple scans based on configuration
 run_scan_batch() {
+    log_debug "📍 Function: run_scan_batch() [scan_manager.sh:492]"
+
     local max_scans=${MAX_SCANS:-3}
     local current_scan=0
     local batch_start_time=$(date +%s)
     local last_scan_start_time=$batch_start_time
     local skipped_scans=0
-    
+
     log_info "==============================================="
     log_info "📋 LOAD TEST EXECUTION PLAN"
     log_info "==============================================="
@@ -467,7 +652,10 @@ run_scan_batch() {
             fi
 
             # Execute in background (overflow slot)
-            local scan_id="scan_${current_scan}"
+            # Generate scan_id with timestamp and randomization for easy tracking
+            local scan_timestamp=$(date '+%Y%m%d-%H%M%S')
+            local scan_random=$RANDOM
+            local scan_id="scan_${current_scan}_${scan_random}_${scan_timestamp}"
             log_info "🚀 Starting scan $current_scan in background"
             if ! execute_scan "$scan_config" "$scan_id"; then
                 log_error "Scan $current_scan failed to start"
@@ -475,7 +663,13 @@ run_scan_batch() {
             # Continue immediately to next cadence check (scan runs in background)
         else
             # PURE SEQUENTIAL MODE - original behavior
-            local scan_id="scan_${current_scan}"
+            # Capture scan start time for cadence calculation
+            local scan_start_time=$(date +%s)
+
+            # Generate scan_id with timestamp and randomization for easy tracking
+            local scan_timestamp=$(date '+%Y%m%d-%H%M%S')
+            local scan_random=$RANDOM
+            local scan_id="scan_${current_scan}_${scan_random}_${scan_timestamp}"
             if ! execute_scan "$scan_config" "$scan_id"; then
                 log_error "Scan $current_scan failed"
                 return 1
@@ -507,6 +701,10 @@ run_scan_batch() {
 
 # Generate scan configuration using enhanced multi-scan config
 generate_scan_config() {
+    # Generate timestamp in format: DDMMYYYY-HHMMSS (matching legacy script)
+    local timestamp=$(date '+%d%m%Y-%H%M%S')
+    local random_id=$RANDOM
+
     # Use the enhanced multi-scan configuration (already sourced by common.sh)
     # DO NOT re-source here as it resets global counters!
     if command -v select_scan_type_with_size >/dev/null 2>&1; then
@@ -517,7 +715,7 @@ generate_scan_config() {
         if [ "$scan_type_size" == "NO_FILES_AVAILABLE" ]; then
             log_warning "No files available for enhanced multi-scan, falling back to default"
             local scan_type="${SCAN_TYPE:-SIGNATURE_SCAN}"
-            local project_name="test-project-$(date +%s)-$$"
+            local project_name="test-project-${random_id}-on-${timestamp}"
             local scan_size="MEDIUM"
             local snippets="no"
             echo "${scan_type}|${project_name}|${scan_size}||${snippets}"
@@ -536,14 +734,16 @@ generate_scan_config() {
             snippets="yes"
         fi
 
-        local project_name="enhanced-$(echo "$scan_type_size" | tr '[:upper:]' '[:lower:]')-$(date +%s)-$$"
+        # Generate project name with randomization and timestamp for easy tracking
+        local scan_type_lower=$(echo "$scan_type_size" | tr '[:upper:]' '[:lower:]')
+        local project_name="enhanced-${scan_type_lower}-${random_id}-on-${timestamp}"
 
         log_debug "Enhanced scan config: $scan_type_size -> $scan_type/$scan_size (snippets=$snippets)"
         echo "${scan_type}|${project_name}|${scan_size}|${scan_type_size}|${snippets}"
     else
         log_warning "Enhanced multi-scan config not found, using basic configuration"
         local scan_type="${SCAN_TYPE:-SIGNATURE_SCAN}"
-        local project_name="test-project-$(date +%s)-$$"
+        local project_name="test-project-${random_id}-on-${timestamp}"
         local scan_size="MEDIUM"
         local snippets="no"
         echo "${scan_type}|${project_name}|${scan_size}||${snippets}"
@@ -568,21 +768,17 @@ handle_scan_cadence() {
         smart_sleep "$TARGET_DURATION" "$description" "$((scan_number + 1))"
     else
         # Sequential mode: maintain total scan duration
-        if [ "$scan_number" -eq 1 ]; then
-            log_info "⏭️  Skipping cadence wait for first scan"
-            return 0
-        fi
-        
         local wait_time
         wait_time=$(calculate_wait_time "$scan_start_time" "$TARGET_DURATION")
-        
+
         if [ "$wait_time" -gt 0 ]; then
-            local description="Sequential scan cadence (${TARGET_DURATION}s target)"
+            local description="Sequential scan cadence (${TARGET_DURATION}s target, spacing scan $((scan_number + 1)))"
+            log_info "⏱️  Cadence wait: ${wait_time}s before scan $((scan_number + 1)) starts"
             smart_sleep "$wait_time" "$description" "$((scan_number + 1))"
         else
             local current_time=$(date +%s)
             local elapsed_time=$((current_time - scan_start_time))
-            log_info "⚡ Scan exceeded target duration (${elapsed_time}s > ${TARGET_DURATION}s), no cadence wait needed"
+            log_info "⚡ Scan exceeded target duration (${elapsed_time}s > ${TARGET_DURATION}s), starting scan $((scan_number + 1)) immediately"
         fi
     fi
     
@@ -593,13 +789,13 @@ handle_scan_cadence() {
     fi
 }
 
-# Extract scan results from log file
+# Extract scan results from log file and metadata
 extract_scan_results() {
     local log_file="$1"
     local job_name="$2"
 
     if [ ! -f "$log_file" ]; then
-        echo "STATUS=UNKNOWN|SCAN_ID=N/A|BOM_URL=N/A|PROJECT=N/A"
+        echo "STATUS=UNKNOWN|SCAN_ID=N/A|BOM_URL=N/A|PROJECT=N/A|VERSION=N/A|CODELOCATION=N/A|SCAN_TYPE_SIZE=N/A|FILES=N/A|START_TIME=N/A|COMPLETION_TIME=N/A"
         return 1
     fi
 
@@ -608,27 +804,64 @@ extract_scan_results() {
     local bom_url="N/A"
     local project_name="N/A"
     local project_version="N/A"
+    local codelocation_name="N/A"
+    local scan_type_size="N/A"
+    local files_used="N/A"
+    local start_time="N/A"
+    local completion_time="N/A"
 
     # Check if scan completed successfully
-    if grep -q "✅ JOB COMPLETED SUCCESSFULLY" "$log_file" 2>/dev/null; then
+    if grep -q "✅ Scan completed successfully" "$log_file" 2>/dev/null; then
         status="SUCCESS"
+        # Extract completion timestamp
+        completion_time=$(grep "✅ Scan completed successfully" "$log_file" 2>/dev/null | head -1 | sed 's/^\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
+    elif grep -q "✅ JOB COMPLETED SUCCESSFULLY" "$log_file" 2>/dev/null; then
+        status="SUCCESS"
+        completion_time=$(grep "✅ JOB COMPLETED SUCCESSFULLY" "$log_file" 2>/dev/null | head -1 | sed 's/^\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
     elif grep -q "❌ JOB FAILED" "$log_file" 2>/dev/null; then
         status="FAILED"
     elif kill -0 "$(pgrep -f "$job_name" | head -1)" 2>/dev/null; then
         status="RUNNING"
     fi
 
-    # Extract project name (BSD grep compatible)
-    project_name=$(grep -o "detect\.project\.name='[^']*'" "$log_file" 2>/dev/null | head -1 | sed "s/detect.project.name='//;s/'//")
-    [ -z "$project_name" ] && project_name="N/A"
+    # Try to read metadata file first (preferred source)
+    local metadata_file="${log_file%.log}.meta"
+    if [ -f "$metadata_file" ]; then
+        # Source metadata file to get variables
+        while IFS='=' read -r key value; do
+            case "$key" in
+                SCAN_ID) scan_id="$value" ;;
+                PROJECT_NAME) project_name="$value" ;;
+                VERSION_NAME) project_version="$value" ;;
+                CODELOCATION_NAME) codelocation_name="$value" ;;
+                SCAN_TYPE_SIZE) scan_type_size="$value" ;;
+                FILES_USED) files_used="$value" ;;
+                SCAN_START_TIMESTAMP) start_time="$value" ;;
+            esac
+        done < "$metadata_file"
+    fi
 
-    # Extract project version (BSD grep compatible)
-    project_version=$(grep -o "detect\.project\.version\.name='[^']*'" "$log_file" 2>/dev/null | head -1 | sed "s/detect.project.version.name='//;s/'//")
-    [ -z "$project_version" ] && project_version="N/A"
+    # Fallback to extracting from log file if metadata not available
+    if [ "$project_name" == "N/A" ]; then
+        project_name=$(grep -o "detect\.project\.name='[^']*'" "$log_file" 2>/dev/null | head -1 | sed "s/detect.project.name='//;s/'//")
+        [ -z "$project_name" ] && project_name="N/A"
+    fi
+
+    if [ "$project_version" == "N/A" ]; then
+        project_version=$(grep -o "detect\.project\.version\.name='[^']*'" "$log_file" 2>/dev/null | head -1 | sed "s/detect.project.version.name='//;s/'//")
+        [ -z "$project_version" ] && project_version="N/A"
+    fi
+
+    if [ "$codelocation_name" == "N/A" ]; then
+        codelocation_name=$(grep -o "detect\.code\.location\.name='[^']*'" "$log_file" 2>/dev/null | head -1 | sed "s/detect.code.location.name='//;s/'//")
+        [ -z "$codelocation_name" ] && codelocation_name="N/A"
+    fi
 
     # Extract scan ID from Black Duck Detect output (BSD grep compatible)
-    scan_id=$(grep -o "[a-f0-9]\{8\}-[a-f0-9]\{4\}-[a-f0-9]\{4\}-[a-f0-9]\{4\}-[a-f0-9]\{12\}" "$log_file" 2>/dev/null | head -1)
-    [ -z "$scan_id" ] && scan_id="N/A"
+    if [ "$scan_id" == "N/A" ]; then
+        scan_id=$(grep -o "[a-f0-9]\{8\}-[a-f0-9]\{4\}-[a-f0-9]\{4\}-[a-f0-9]\{4\}-[a-f0-9]\{12\}" "$log_file" 2>/dev/null | head -1)
+        [ -z "$scan_id" ] && scan_id="N/A"
+    fi
 
     # Extract BOM URL (various patterns from Detect output, BSD grep compatible)
     # Pattern 1: API URL with /api/projects/
@@ -643,7 +876,7 @@ extract_scan_results() {
     fi
     [ -z "$bom_url" ] && bom_url="N/A"
 
-    echo "STATUS=$status|SCAN_ID=$scan_id|BOM_URL=$bom_url|PROJECT=$project_name|VERSION=$project_version"
+    echo "STATUS=$status|SCAN_ID=$scan_id|BOM_URL=$bom_url|PROJECT=$project_name|VERSION=$project_version|CODELOCATION=$codelocation_name|SCAN_TYPE_SIZE=$scan_type_size|FILES=$files_used|START_TIME=$start_time|COMPLETION_TIME=$completion_time"
 }
 
 # Print scan statistics
@@ -657,72 +890,126 @@ print_scan_statistics() {
 
     log_info "Scan Type Distribution:"
     log_info "  • SIGNATURE_SCAN: $SIGNATURE_SCAN_COUNT scans"
+    if [ "$SIGNATURE_SCAN_SMALL_COUNT" -gt 0 ] || [ "$SIGNATURE_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$SIGNATURE_SCAN_LARGE_COUNT" -gt 0 ] || [ "$SIGNATURE_SCAN_XLARGE_COUNT" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $SIGNATURE_SCAN_SMALL_COUNT"
+        log_info "    ├─ MEDIUM: $SIGNATURE_SCAN_MEDIUM_COUNT"
+        log_info "    ├─ LARGE:  $SIGNATURE_SCAN_LARGE_COUNT"
+        log_info "    └─ XLARGE: $SIGNATURE_SCAN_XLARGE_COUNT"
+    fi
     log_info "  • BINARY_SCAN: $BINARY_SCAN_COUNT scans"
+    if [ "$BINARY_SCAN_SMALL_COUNT" -gt 0 ] || [ "$BINARY_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$BINARY_SCAN_LARGE_COUNT" -gt 0 ] || [ "$BINARY_SCAN_XLARGE_COUNT" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $BINARY_SCAN_SMALL_COUNT"
+        log_info "    ├─ MEDIUM: $BINARY_SCAN_MEDIUM_COUNT"
+        log_info "    ├─ LARGE:  $BINARY_SCAN_LARGE_COUNT"
+        log_info "    └─ XLARGE: $BINARY_SCAN_XLARGE_COUNT"
+    fi
     log_info "  • CONTAINER_SCAN: $CONTAINER_SCAN_COUNT scans"
+    if [ "$CONTAINER_SCAN_SMALL_COUNT" -gt 0 ] || [ "$CONTAINER_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$CONTAINER_SCAN_LARGE_COUNT" -gt 0 ] || [ "$CONTAINER_SCAN_XLARGE_COUNT" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $CONTAINER_SCAN_SMALL_COUNT"
+        log_info "    ├─ MEDIUM: $CONTAINER_SCAN_MEDIUM_COUNT"
+        log_info "    ├─ LARGE:  $CONTAINER_SCAN_LARGE_COUNT"
+        log_info "    └─ XLARGE: $CONTAINER_SCAN_XLARGE_COUNT"
+    fi
     log_info "  • SNIPPET_SCAN: $SNIPPET_SCAN_COUNT scans"
+    if [ "$SNIPPET_SCAN_SMALL_COUNT" -gt 0 ] || [ "$SNIPPET_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$SNIPPET_SCAN_LARGE_COUNT" -gt 0 ] || [ "$SNIPPET_SCAN_XLARGE_COUNT" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $SNIPPET_SCAN_SMALL_COUNT"
+        log_info "    ├─ MEDIUM: $SNIPPET_SCAN_MEDIUM_COUNT"
+        log_info "    ├─ LARGE:  $SNIPPET_SCAN_LARGE_COUNT"
+        log_info "    └─ XLARGE: $SNIPPET_SCAN_XLARGE_COUNT"
+    fi
     log_info "  • TOTAL: $total_scans scans"
     log_info ""
+
+    # Print detailed scan results for both sequential and parallel modes
+    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
 
     if [ "${PARALLEL_SCANS}" == "yes" ]; then
         log_info "Parallel Execution Results:"
         get_job_status_summary
         log_info ""
+    fi
 
-        # Print detailed scan results
-        if [ -d "${PARALLEL_LOG_DIR}" ]; then
-            log_info "==============================================="
-            log_info "📋 DETAILED SCAN RESULTS"
-            log_info "==============================================="
-            log_info ""
+    # Print detailed scan results (works for both sequential and parallel modes)
+    if [ -d "$log_dir" ]; then
+        log_info "==============================================="
+        log_info "📋 DETAILED SCAN RESULTS"
+        log_info "==============================================="
+        log_info ""
 
-            local success_count=0
-            local failed_count=0
-            local running_count=0
+        local success_count=0
+        local failed_count=0
+        local running_count=0
 
-            # Table header - send to stdout for pipeline processing
-            printf "%-40s %-10s %-38s\n" "PROJECT" "STATUS" "SCAN_ID"
-            printf "%-40s %-10s %-38s\n" "----------------------------------------" "----------" "--------------------------------------"
+        # Comprehensive table header
+        echo ""
+        printf "%-20s %-15s %-10s %-30s %-19s %-19s\n" "SCAN TYPE" "SIZE" "STATUS" "PROJECT" "START TIME" "COMPLETION TIME"
+        printf "%-20s %-15s %-10s %-30s %-19s %-19s\n" "--------------------" "---------------" "----------" "------------------------------" "-------------------" "-------------------"
 
-            for log_file in "${PARALLEL_LOG_DIR}"/*.log; do
-                if [ -f "$log_file" ]; then
-                    local job_name=$(basename "$log_file" .log)
-                    local result_line=$(extract_scan_results "$log_file" "$job_name")
+        for log_file in "$log_dir"/*.log; do
+            if [ -f "$log_file" ]; then
+                local job_name=$(basename "$log_file" .log)
+                local result_line=$(extract_scan_results "$log_file" "$job_name")
 
-                    # Parse result (BSD grep compatible)
-                    local status=$(echo "$result_line" | sed -n 's/.*STATUS=\([^|]*\).*/\1/p')
-                    local scan_id=$(echo "$result_line" | sed -n 's/.*SCAN_ID=\([^|]*\).*/\1/p')
-                    local bom_url=$(echo "$result_line" | sed -n 's/.*BOM_URL=\([^|]*\).*/\1/p')
-                    local project=$(echo "$result_line" | sed -n 's/.*PROJECT=\([^|]*\).*/\1/p')
+                # Parse result (BSD grep compatible)
+                local status=$(echo "$result_line" | sed -n 's/.*STATUS=\([^|]*\).*/\1/p')
+                local scan_id=$(echo "$result_line" | sed -n 's/.*SCAN_ID=\([^|]*\).*/\1/p')
+                local bom_url=$(echo "$result_line" | sed -n 's/.*BOM_URL=\([^|]*\).*/\1/p')
+                local project=$(echo "$result_line" | sed -n 's/.*PROJECT=\([^|]*\).*/\1/p')
+                local version=$(echo "$result_line" | sed -n 's/.*VERSION=\([^|]*\).*/\1/p')
+                local codelocation=$(echo "$result_line" | sed -n 's/.*CODELOCATION=\([^|]*\).*/\1/p')
+                local scan_type_size=$(echo "$result_line" | sed -n 's/.*SCAN_TYPE_SIZE=\([^|]*\).*/\1/p')
+                local files=$(echo "$result_line" | sed -n 's/.*FILES=\([^|]*\).*/\1/p')
+                local start_time=$(echo "$result_line" | sed -n 's/.*START_TIME=\([^|]*\).*/\1/p')
+                local completion_time=$(echo "$result_line" | sed -n 's/.*COMPLETION_TIME=\([^|]*\).*/\1/p')
 
-                    # Count by status
-                    case "$status" in
-                        SUCCESS) ((success_count++)) ;;
-                        FAILED) ((failed_count++)) ;;
-                        RUNNING) ((running_count++)) ;;
-                    esac
-
-                    # Print row - send to stdout for pipeline processing
-                    printf "%-40s %-10s %-38s\n" "${project:0:40}" "$status" "$scan_id"
-
-                    # Print BOM URL if available - send to stdout for pipeline processing
-                    if [ "$bom_url" != "N/A" ]; then
-                        printf "  └─ BOM: %s\n" "$bom_url"
-                    fi
-
-                    # Print log file path - send to stdout for Jenkins console visibility
-                    printf "  └─ Log: %s\n" "$log_file"
+                # Parse scan type and size from scan_type_size
+                local scan_type_display="N/A"
+                local size_display="N/A"
+                if [[ "$scan_type_size" =~ ^(BINARY_SCAN|SIGNATURE_SCAN|CONTAINER_SCAN|SNIPPET_SCAN)_(SMALL|MEDIUM|LARGE|XLARGE)$ ]]; then
+                    scan_type_display="${BASH_REMATCH[1]}"
+                    size_display="${BASH_REMATCH[2]}"
+                elif [[ "$scan_type_size" == "SNIPPET_SCAN" ]]; then
+                    scan_type_display="SNIPPET_SCAN"
+                    size_display="MEDIUM"
+                elif [ "$scan_type_size" != "N/A" ]; then
+                    scan_type_display="$scan_type_size"
                 fi
-            done
 
-            log_info ""
-            log_info "==============================================="
+                # Count by status
+                case "$status" in
+                    SUCCESS) ((success_count++)) ;;
+                    FAILED) ((failed_count++)) ;;
+                    RUNNING) ((running_count++)) ;;
+                esac
 
-            # Send status summary to stdout for pipeline processing
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - 📊 Status Summary:"
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ✅ Successful: $success_count"
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   ❌ Failed: $failed_count"
-            echo "$(date '+%Y-%m-%d %H:%M:%S') -   🔄 Running: $running_count"
-        fi
+                # Print main row
+                printf "%-20s %-15s %-10s %-30s %-19s %-19s\n" \
+                    "${scan_type_display:0:20}" \
+                    "${size_display:0:15}" \
+                    "$status" \
+                    "${project:0:30}" \
+                    "${start_time:0:19}" \
+                    "${completion_time:0:19}"
+
+                # Print additional details as sub-rows
+                printf "  Version: %-50s  Codelocation: %s\n" "${version:0:50}" "${codelocation:0:60}"
+                printf "  Files: %s\n" "$files"
+                if [ "$bom_url" != "N/A" ]; then
+                    printf "  BOM URL: %s\n" "$bom_url"
+                fi
+                printf "  Log: %s\n" "$log_file"
+                echo ""
+            fi
+        done
+
+        log_info ""
+        log_info "==============================================="
+
+        # Send status summary to stdout for pipeline processing
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 📊 Status Summary:"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   ✅ Successful: $success_count"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   ❌ Failed: $failed_count"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') -   🔄 Running: $running_count"
     fi
 
     log_info ""
