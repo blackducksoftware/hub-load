@@ -352,9 +352,11 @@ execute_single_scan() {
     echo ""
 
     if [ "${PARALLEL_SCANS}" == "yes" ]; then
-        # Execute in parallel
+        # Execute in parallel - use the already-defined log_file from line 195
+        # This ensures metadata file and log file names match for proper extraction
         local job_name="${scan_type}_${project_name}_${scan_id}"
-        local log_file="${PARALLEL_LOG_DIR}/${job_name}.log"
+        # Note: log_file already defined at line 195 with detailed naming
+        # ${scan_id}_v${version}_cl${codelocation_num}_${scan_timestamp}_${scan_type_size}.log
 
         start_parallel_job "$job_name" "$scan_command" "$log_file"
     else

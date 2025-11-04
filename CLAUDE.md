@@ -378,17 +378,40 @@ The codebase supports both macOS and Linux:
 
 ## Common Development Patterns
 
-### Testing Changes
+### Testing Changes Locally (macOS)
 
 **Always test with the modular architecture:**
 
 ```bash
-# Test your changes
-DEBUG=yes USE_GCS=no MAX_SCANS=3 ./src/hub_load/core/hub_load_main.sh
+# Test your changes locally
+DEBUG=yes USE_GCS=no MAX_SCANS=3 \
+  API_TOKEN=your-token \
+  BD_HUB_URL=https://your-hub.com \
+  ./src/hub_load/core/hub_load_main.sh
 
 # Use debug configs to isolate specific scan types
 source src/hub_load/config/debug_container_scan.sh
-./src/hub_load/core/hub_load_main.sh
+API_TOKEN=your-token BD_HUB_URL=https://your-hub.com \
+  ./src/hub_load/core/hub_load_main.sh
+```
+
+### Testing on Ubuntu/Linux
+
+```bash
+# Verify Bash compatibility
+bash -n src/hub_load/core/lib/common.sh
+bash -n src/hub_load/core/lib/file_manager.sh
+bash -n src/hub_load/core/lib/scan_manager.sh
+bash -n src/hub_load/core/hub_load_main.sh
+
+# Run test
+source src/hub_load/config/debug_mixed_scans.sh
+API_TOKEN=your-token \
+  BD_HUB_URL=https://your-hub.com \
+  LOCAL_TEST_DATA_DIR=/path/to/SCASS \
+  USE_GCS=no \
+  MAX_SCANS=10 \
+  ./src/hub_load/core/hub_load_main.sh
 ```
 
 ### Adding a New Scan Type Size Variant
@@ -411,6 +434,9 @@ bash -n src/hub_load/core/lib/scan_manager.sh
 bash -n src/hub_load/core/lib/file_manager.sh
 bash -n src/hub_load/core/hub_load_main.sh
 
+# Check all modules at once
+bash -n src/hub_load/core/lib/*.sh && echo "✅ All syntax checks passed"
+
 # Test individual module functions
 source src/hub_load/core/lib/common.sh
 source src/hub_load/core/lib/parallel_manager.sh
@@ -418,6 +444,45 @@ init_parallel_manager
 
 # Full debug run
 DEBUG=yes ./src/hub_load/core/hub_load_main.sh --help
+```
+
+### Common Bash Pitfalls to Avoid
+
+When modifying the code, avoid these common issues:
+
+#### ❌ Don't Use C-Style Ternary Operators
+```bash
+# WRONG - Not supported in Bash
+result=$(( condition ? value1 : value2 ))
+
+# CORRECT - Use if-then-else
+if [ condition ]; then
+    result=value1
+else
+    result=value2
+fi
+```
+
+#### ❌ Don't Use Unsafe Counter Increments
+```bash
+# WRONG - Returns exit code 1 when counter is 0
+((counter++))
+
+# CORRECT - Always returns exit code 0
+counter=$((counter + 1))
+```
+
+#### ❌ Don't Hardcode Paths
+```bash
+# WRONG - Breaks on different platforms
+LOG_DIR="/app/logs"
+
+# CORRECT - Platform-aware detection
+if [ -d "/app" ] && [ -w "/app" ]; then
+    LOG_DIR="/app/logs"
+else
+    LOG_DIR="/tmp/hub_load_logs"
+fi
 ```
 
 ### Variable Scoping
@@ -455,6 +520,94 @@ Recent commit patterns show:
 - "deterministic scan selection added" - for feature additions
 - "Fixes for binary and container scans" - for bug fixes
 
+## Recent Fixes (November 2025)
+
+### Critical Bash Compatibility Fixes
+
+The following issues were discovered and fixed when running on Ubuntu/Linux:
+
+#### 1. C-Style Ternary Operators Not Supported
+**Problem**: Bash doesn't support `condition ? true : false` syntax in `$(( ))` arithmetic.
+
+**Files Fixed**:
+- `src/hub_load/core/lib/file_manager.sh:414` - Component count calculation
+- `src/hub_load/core/lib/file_manager.sh:389` - Minimum components check
+- `src/hub_load/core/lib/common.sh:277` - Sleep time calculation
+
+**Before**:
+```bash
+num_files=$(( ${FIXED_COMPONENTS:-2} > ${#files[@]} ? ${#files[@]} : ${FIXED_COMPONENTS:-2} ))
+```
+
+**After**:
+```bash
+local fixed_comp=${FIXED_COMPONENTS:-2}
+local available=${#files[@]}
+if [ "$fixed_comp" -gt "$available" ]; then
+    num_files=$available
+else
+    num_files=$fixed_comp
+fi
+```
+
+#### 2. Unsafe Counter Increments with set -e
+**Problem**: `((counter++))` returns exit code 1 when counter is 0, causing script failure with `set -e`.
+
+**Fixed 28+ instances** across:
+- `src/hub_load/core/lib/scan_manager.sh` - All scan type counters and status counters
+
+**Before**:
+```bash
+((SIGNATURE_SCAN_COUNT++))
+((success_count++))
+```
+
+**After**:
+```bash
+SIGNATURE_SCAN_COUNT=$((SIGNATURE_SCAN_COUNT + 1))
+success_count=$((success_count + 1))
+```
+
+#### 3. Platform-Aware Log Directory
+**Fixed**: `src/hub_load/core/lib/common.sh:129`
+
+**Before**: Hardcoded `/app/logs` for all platforms
+**After**: Automatically detects platform:
+- Docker/containers with `/app`: Uses `/app/logs`
+- macOS/Linux without `/app`: Uses `/tmp/hub_load_logs`
+
+#### 4. hub_load_test.sh Called Wrong Script
+**Fixed**: `src/hub_load/hub_load_test.sh:27`
+
+**Before**: Called legacy `submit_scans_fixed.sh`
+**After**: Calls modular `hub_load_main.sh`
+
+### Security Fixes
+
+#### API Token Protection
+- Created `.gitignore` to protect sensitive files
+- Sanitized `src/run_scans.bash` to use environment variables instead of hardcoded tokens
+- Protected `.claude/settings.local.json` from git commits
+
+### New Files Created
+
+#### run_load_test.sh
+Wrapper script for easy test execution with proper nohup support:
+
+```bash
+# Usage
+export API_TOKEN=your-token
+export BD_HUB_URL=https://your-hub.com
+./run_load_test.sh background  # or foreground
+```
+
+#### .gitignore
+Protects sensitive files from accidental commits:
+- API keys and secrets
+- Log files
+- Claude Code local settings
+- Backup files
+
 ## Known Issues and Workarounds
 
 ### Legacy Script Issues (DO NOT USE)
@@ -465,17 +618,40 @@ Recent commit patterns show:
 - Debugging nightmares due to monolithic design
 - **Solution**: Use `hub_load_main.sh` instead
 
-### Log Directory Errors (macOS)
+**CRITICAL**: The `hub_load_test.sh` script has been fixed to call the modular version. If you still see errors, ensure you have the latest version.
 
-When running locally on macOS, you may see errors like:
+### Running on Ubuntu/Linux
+
+When deploying to Ubuntu, use the modular architecture directly:
+
+```bash
+# Direct call (recommended)
+nohup bash -c '
+source src/hub_load/config/debug_mixed_scans.sh
+export API_TOKEN="your-token"
+export BD_HUB_URL="https://your-hub.com"
+export MAX_PARALLEL_JOBS=4
+export MAX_SCANS=480
+export TEST_DURATION=8
+export LOCAL_TEST_DATA_DIR="/path/to/test-data/SCASS"
+export USE_GCS=no
+./src/hub_load/core/hub_load_main.sh
+' > scans.log 2>&1 &
 ```
-mkdir: /app: Read-only file system
-/app/logs/parallel/scan_*.log: No such file or directory
-```
 
-**Cause**: The system tries to create Docker-style paths (`/app/logs`) on macOS.
+**Important**: Always include `/SCASS` in your `LOCAL_TEST_DATA_DIR` path.
 
-**Solution**: These are warnings only and don't affect functionality. Logs will fall back to `/tmp/hub_load_jobs/` directory.
+### Log Directory Behavior
+
+The system automatically selects the appropriate log directory:
+
+| Environment | Log Directory | Status |
+|------------|---------------|--------|
+| Docker containers | `/app/logs/parallel/` | Auto-detected |
+| macOS/Linux local | `/tmp/hub_load_logs/parallel/` | Auto-detected |
+| Custom | `$LOG_DIR/parallel/` | Set `LOG_DIR` env var |
+
+**Note**: You may still see harmless warnings on macOS about `/app` directory if using older versions.
 
 ### Java Configuration in Containers
 
@@ -574,15 +750,105 @@ for file in src/hub_load/core/lib/*.sh; do
 done
 ```
 
+## Deployment Checklist
+
+When deploying to a new environment (especially Ubuntu/Linux):
+
+1. **Verify Bash compatibility**:
+   ```bash
+   bash -n src/hub_load/core/lib/*.sh
+   bash -n src/hub_load/core/hub_load_main.sh
+   ```
+
+2. **Check file permissions**:
+   ```bash
+   chmod +x src/hub_load/core/hub_load_main.sh
+   chmod +x run_load_test.sh
+   ```
+
+3. **Verify test data access**:
+   ```bash
+   ls -la /path/to/test-data/SCASS/
+   find /path/to/test-data/SCASS -type f | head -10
+   ```
+
+4. **Set environment variables**:
+   ```bash
+   export API_TOKEN="your-token"
+   export BD_HUB_URL="https://your-hub.com"
+   export LOCAL_TEST_DATA_DIR="/path/to/SCASS"
+   export USE_GCS=no
+   ```
+
+5. **Run a test scan**:
+   ```bash
+   source src/hub_load/config/debug_binary_scan.sh
+   MAX_SCANS=1 ./src/hub_load/core/hub_load_main.sh
+   ```
+
+6. **Check logs are being created**:
+   ```bash
+   # On Ubuntu/Linux
+   ls -la /tmp/hub_load_logs/parallel/
+
+   # In Docker
+   ls -la /app/logs/parallel/
+   ```
+
+## Summary Output
+
+The system provides comprehensive reporting at two points:
+
+### Per-Scan Output (During Execution)
+For each scan submitted, the following is displayed:
+- Scan type and size variant (e.g., BINARY_SCAN_SMALL)
+- Project name (with timestamp and randomization)
+- Version name (v1-YYYYMMDD-HHMMSS format)
+- Code location name (hostname-type-cl-num-random-date format)
+- Log file path
+- Number of files and total size
+- List of all files used
+
+### Final Summary (After Completion)
+Comprehensive table showing for ALL scans:
+- Scan type and size
+- Status (SUCCESS/FAILED/RUNNING)
+- Project name
+- Version name
+- Code location name
+- Start and completion times
+- Files used (especially important for signature scans with multiple JARs)
+- BOM URL (if scan succeeded)
+- Log file path
+- Overall statistics (success rate, total scans, etc.)
+
 ## Documentation References
 
 Key documentation files:
 - `README.md`: Main project documentation with usage examples
 - `QUICK_START.md`: Quick start guide for common workflows
+- `CLAUDE.md`: This file - comprehensive guide for Claude Code
 - `src/hub_load/README.md`: Modular architecture overview
 - `src/hub_load/core/MODULAR_ARCHITECTURE_SOLUTION.md`: Detailed modular design rationale
 - `src/hub_load/config/README_DEBUG_CONFIGS.md`: Debug configuration documentation
 - `src/hub_load/docs/MEMORY_MAPPING_README.md`: Memory mapping implementation details
 - `test-data/README.md`: Test data structure and usage
 
-Multiple implementation summary files exist (e.g., `SCAN_SUMMARY_ENHANCEMENTS.md`, `BINARY_SCAN_UPLOAD_FIX.md`) documenting specific features and fixes.
+Implementation and fix documentation:
+- `SCAN_SUMMARY_ENHANCEMENTS.md`: Scan summary improvements
+- `BINARY_SCAN_UPLOAD_FIX.md`: Binary scan fixes
+- `.gitignore`: Security protections for sensitive files
+
+## Files Created/Modified in Latest Session (Nov 2025)
+
+### New Files
+- `run_load_test.sh`: Wrapper script for easy execution
+- `.gitignore`: Protects API keys and sensitive data
+
+### Modified Files
+- `src/hub_load/core/lib/common.sh`: Platform-aware LOG_DIR, Bash compatibility fixes
+- `src/hub_load/core/lib/file_manager.sh`: Removed ternary operators, safe increments
+- `src/hub_load/core/lib/scan_manager.sh`: Safe counter increments (28+ fixes)
+- `src/hub_load/hub_load_test.sh`: Now calls modular architecture
+- `src/run_scans.bash`: Sanitized API tokens
+- `CLAUDE.md`: This file - comprehensive updates
