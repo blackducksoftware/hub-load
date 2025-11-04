@@ -386,7 +386,11 @@ select_files_for_scan() {
         if [ "$scan_type" == "SIGNATURE_SCAN" ]; then
             # Random number of components for signature scans
             num_files=$(( (RANDOM % ${MAX_COMPONENTS:-400}) + 1 ))
-            num_files=$(( num_files > ${MIN_COMPONENTS:-200} ? num_files : ${MIN_COMPONENTS:-200} ))
+            # Ensure num_files meets minimum requirement
+            local min_comp=${MIN_COMPONENTS:-200}
+            if [ "$num_files" -lt "$min_comp" ]; then
+                num_files=$min_comp
+            fi
         else
             # Binary and container scans always use 1 file
             num_files=1
@@ -411,7 +415,14 @@ select_files_for_scan() {
         start_pos=${SCAN_TYPE_POSITIONS[$scan_type_key]}
 
         if [ "$scan_type" == "SIGNATURE_SCAN" ]; then
-            num_files=$(( ${FIXED_COMPONENTS:-2} > ${#files[@]} ? ${#files[@]} : ${FIXED_COMPONENTS:-2} ))
+            # Use min of FIXED_COMPONENTS and available files
+            local fixed_comp=${FIXED_COMPONENTS:-2}
+            local available=${#files[@]}
+            if [ "$fixed_comp" -gt "$available" ]; then
+                num_files=$available
+            else
+                num_files=$fixed_comp
+            fi
         else
             num_files=1
         fi

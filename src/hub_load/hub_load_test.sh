@@ -23,5 +23,6 @@ fi
 # Export paths for use by other scripts
 export CORE_DIR CONFIG_DIR SCRIPTS_DIR MEMORY_MAPPING_DIR DOCKER_DIR
 
-# Execute the main load testing script
-exec "${CORE_DIR}/submit_scans_fixed.sh" "$@"
+# Execute the modular main load testing script
+# NOTE: Using hub_load_main.sh (modular architecture), NOT submit_scans_fixed.sh (legacy with known issues)
+exec "${CORE_DIR}/hub_load_main.sh" "$@"

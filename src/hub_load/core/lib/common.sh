@@ -274,7 +274,14 @@ smart_sleep() {
                 fi
                 log_info "$progress_msg"
             fi
-            local sleep_time=$((sleep_duration - i > 60 ? 60 : sleep_duration - i))
+            # Sleep in 60s chunks to allow for interruption
+            local remaining=$((sleep_duration - i))
+            local sleep_time
+            if [ "$remaining" -gt 60 ]; then
+                sleep_time=60
+            else
+                sleep_time=$remaining
+            fi
             sleep "$sleep_time"
         done
     else
