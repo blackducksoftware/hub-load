@@ -370,32 +370,32 @@ execute_single_scan() {
             # Send success message to stdout for pipeline processing
             echo "$(date '+%Y-%m-%d %H:%M:%S') - ✅ Scan completed successfully in ${duration}s"
 
-            # Update counters
+            # Update counters (use safe increment to avoid exit code 1 when counter is 0)
             case "$scan_type" in
-                SIGNATURE_SCAN) ((SIGNATURE_SCAN_COUNT++)) ;;
-                BINARY_SCAN) ((BINARY_SCAN_COUNT++)) ;;
-                CONTAINER_SCAN) ((CONTAINER_SCAN_COUNT++)) ;;
-                SNIPPET_SCAN) ((SNIPPET_SCAN_COUNT++)) ;;
+                SIGNATURE_SCAN) SIGNATURE_SCAN_COUNT=$((SIGNATURE_SCAN_COUNT + 1)) ;;
+                BINARY_SCAN) BINARY_SCAN_COUNT=$((BINARY_SCAN_COUNT + 1)) ;;
+                CONTAINER_SCAN) CONTAINER_SCAN_COUNT=$((CONTAINER_SCAN_COUNT + 1)) ;;
+                SNIPPET_SCAN) SNIPPET_SCAN_COUNT=$((SNIPPET_SCAN_COUNT + 1)) ;;
             esac
-            
+
             if [ -n "$scan_size" ]; then
                 case "${scan_type}_${scan_size}" in
-                    SIGNATURE_SCAN_SMALL) ((SIGNATURE_SCAN_SMALL_COUNT++)) ;;
-                    SIGNATURE_SCAN_MEDIUM) ((SIGNATURE_SCAN_MEDIUM_COUNT++)) ;;
-                    SIGNATURE_SCAN_LARGE) ((SIGNATURE_SCAN_LARGE_COUNT++)) ;;
-                    SIGNATURE_SCAN_XLARGE) ((SIGNATURE_SCAN_XLARGE_COUNT++)) ;;
-                    BINARY_SCAN_SMALL) ((BINARY_SCAN_SMALL_COUNT++)) ;;
-                    BINARY_SCAN_MEDIUM) ((BINARY_SCAN_MEDIUM_COUNT++)) ;;
-                    BINARY_SCAN_LARGE) ((BINARY_SCAN_LARGE_COUNT++)) ;;
-                    BINARY_SCAN_XLARGE) ((BINARY_SCAN_XLARGE_COUNT++)) ;;
-                    CONTAINER_SCAN_SMALL) ((CONTAINER_SCAN_SMALL_COUNT++)) ;;
-                    CONTAINER_SCAN_MEDIUM) ((CONTAINER_SCAN_MEDIUM_COUNT++)) ;;
-                    CONTAINER_SCAN_LARGE) ((CONTAINER_SCAN_LARGE_COUNT++)) ;;
-                    CONTAINER_SCAN_XLARGE) ((CONTAINER_SCAN_XLARGE_COUNT++)) ;;
-                    SNIPPET_SCAN_SMALL) ((SNIPPET_SCAN_SMALL_COUNT++)) ;;
-                    SNIPPET_SCAN_MEDIUM) ((SNIPPET_SCAN_MEDIUM_COUNT++)) ;;
-                    SNIPPET_SCAN_LARGE) ((SNIPPET_SCAN_LARGE_COUNT++)) ;;
-                    SNIPPET_SCAN_XLARGE) ((SNIPPET_SCAN_XLARGE_COUNT++)) ;;
+                    SIGNATURE_SCAN_SMALL) SIGNATURE_SCAN_SMALL_COUNT=$((SIGNATURE_SCAN_SMALL_COUNT + 1)) ;;
+                    SIGNATURE_SCAN_MEDIUM) SIGNATURE_SCAN_MEDIUM_COUNT=$((SIGNATURE_SCAN_MEDIUM_COUNT + 1)) ;;
+                    SIGNATURE_SCAN_LARGE) SIGNATURE_SCAN_LARGE_COUNT=$((SIGNATURE_SCAN_LARGE_COUNT + 1)) ;;
+                    SIGNATURE_SCAN_XLARGE) SIGNATURE_SCAN_XLARGE_COUNT=$((SIGNATURE_SCAN_XLARGE_COUNT + 1)) ;;
+                    BINARY_SCAN_SMALL) BINARY_SCAN_SMALL_COUNT=$((BINARY_SCAN_SMALL_COUNT + 1)) ;;
+                    BINARY_SCAN_MEDIUM) BINARY_SCAN_MEDIUM_COUNT=$((BINARY_SCAN_MEDIUM_COUNT + 1)) ;;
+                    BINARY_SCAN_LARGE) BINARY_SCAN_LARGE_COUNT=$((BINARY_SCAN_LARGE_COUNT + 1)) ;;
+                    BINARY_SCAN_XLARGE) BINARY_SCAN_XLARGE_COUNT=$((BINARY_SCAN_XLARGE_COUNT + 1)) ;;
+                    CONTAINER_SCAN_SMALL) CONTAINER_SCAN_SMALL_COUNT=$((CONTAINER_SCAN_SMALL_COUNT + 1)) ;;
+                    CONTAINER_SCAN_MEDIUM) CONTAINER_SCAN_MEDIUM_COUNT=$((CONTAINER_SCAN_MEDIUM_COUNT + 1)) ;;
+                    CONTAINER_SCAN_LARGE) CONTAINER_SCAN_LARGE_COUNT=$((CONTAINER_SCAN_LARGE_COUNT + 1)) ;;
+                    CONTAINER_SCAN_XLARGE) CONTAINER_SCAN_XLARGE_COUNT=$((CONTAINER_SCAN_XLARGE_COUNT + 1)) ;;
+                    SNIPPET_SCAN_SMALL) SNIPPET_SCAN_SMALL_COUNT=$((SNIPPET_SCAN_SMALL_COUNT + 1)) ;;
+                    SNIPPET_SCAN_MEDIUM) SNIPPET_SCAN_MEDIUM_COUNT=$((SNIPPET_SCAN_MEDIUM_COUNT + 1)) ;;
+                    SNIPPET_SCAN_LARGE) SNIPPET_SCAN_LARGE_COUNT=$((SNIPPET_SCAN_LARGE_COUNT + 1)) ;;
+                    SNIPPET_SCAN_XLARGE) SNIPPET_SCAN_XLARGE_COUNT=$((SNIPPET_SCAN_XLARGE_COUNT + 1)) ;;
                 esac
             fi
         else
@@ -583,7 +583,7 @@ run_scan_batch() {
     log_info ""
     
     while [ $current_scan -lt $max_scans ]; do
-        ((current_scan++))
+        current_scan=$((current_scan + 1))
         local current_time=$(date +%s)
 
         log_info "Preparing scan $current_scan/$max_scans"
@@ -975,11 +975,11 @@ print_scan_statistics() {
                     scan_type_display="$scan_type_size"
                 fi
 
-                # Count by status
+                # Count by status (use safe increment to avoid exit code 1 when value is 0)
                 case "$status" in
-                    SUCCESS) ((success_count++)) ;;
-                    FAILED) ((failed_count++)) ;;
-                    RUNNING) ((running_count++)) ;;
+                    SUCCESS) success_count=$((success_count + 1)) ;;
+                    FAILED) failed_count=$((failed_count + 1)) ;;
+                    RUNNING) running_count=$((running_count + 1)) ;;
                 esac
 
                 # Print main row
