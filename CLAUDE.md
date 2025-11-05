@@ -1190,4 +1190,17 @@ Implementation and fix documentation:
   - **Summary counting fix** (line 1001-1060): Use .meta files instead of .log files for accurate counts on all platforms
   - **Detailed results fix** (line 1135-1156): Use .meta files to show running/failed scans, not just completed ones
 
-- `CLAUDE.md`: This file - documented snippet scan extraction fix and summary counting fix
+- `src/hub_load/config/debug_mixed_scans.sh`:
+  - **MAX_SCANS override fix** (line 31): Changed hardcoded `export MAX_SCANS=60` to `export MAX_SCANS=${MAX_SCANS:-60}` to allow override
+  - **Active config display** (line 39-52): Shows which config (SMALL_SCAN_CONFIG or MULTI_SCAN_CONFIG) will actually be used based on threshold
+  - **Clear config output**: Now displays `ACTIVE_CONFIG` and `CONFIG_VALUE` instead of misleading `MULTI_SCAN_CONFIG`
+  - **FIXED_COMPONENTS export** (line 36): Added missing `export FIXED_COMPONENTS=${FIXED_COMPONENTS:-2}` to prevent integer expression errors
+
+- `CLAUDE.md`: This file - documented snippet scan extraction fix, summary counting fix, and debug config improvements
+
+**Benefits of debug config fix**:
+- ✅ Users can override MAX_SCANS: `MAX_SCANS=20 source debug_mixed_scans.sh`
+- ✅ Debug output shows correct config being used (SMALL for <50, MULTI for ≥50)
+- ✅ No more confusion about which config percentages apply
+- ✅ Threshold (50) is clearly displayed
+- ✅ FIXED_COMPONENTS properly exported - prevents "integer expression expected" errors on Linux

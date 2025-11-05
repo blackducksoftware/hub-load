@@ -28,16 +28,27 @@ export DEBUG=no
 export TEST_DURATION=1  # Short duration for quick debugging
 
 # Recommended settings for debugging
-#export MAX_SCANS=${MAX_SCANS:-60}
-export MAX_SCANS=60
+export MAX_SCANS=${MAX_SCANS:-60}
 export SYNCHRONOUS_SCANS=${SYNCHRONOUS_SCANS:-no}
 export PARALLEL_SCANS=${PARALLEL_SCANS:-yes}
 export USE_GCS=${USE_GCS:-no}
 export LOCAL_TEST_DATA_DIR="${LOCAL_TEST_DATA_DIR:-/Users/karth/Library/CloudStorage/OneDrive-BlackDuckSoftware/Documents/Automation/blackducksoftware/test-data}"
+export FIXED_COMPONENTS=${FIXED_COMPONENTS:-2}  # Number of files per signature scan
+
+# Determine which config will be used based on scan count
+SCAN_COUNT_THRESHOLD=${SCAN_COUNT_THRESHOLD:-50}
+if [ "$MAX_SCANS" -lt "$SCAN_COUNT_THRESHOLD" ]; then
+    ACTIVE_CONFIG="SMALL_SCAN_CONFIG"
+    ACTIVE_CONFIG_VALUE="$SMALL_SCAN_CONFIG"
+else
+    ACTIVE_CONFIG="MULTI_SCAN_CONFIG"
+    ACTIVE_CONFIG_VALUE="$MULTI_SCAN_CONFIG"
+fi
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Configuration:" >&2
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   MAX_SCANS: $MAX_SCANS" >&2
-echo "$(date '+%Y-%m-%d %H:%M:%S') -   MULTI_SCAN_CONFIG: $MULTI_SCAN_CONFIG" >&2
+echo "$(date '+%Y-%m-%d %H:%M:%S') -   ACTIVE_CONFIG: $ACTIVE_CONFIG (threshold: $SCAN_COUNT_THRESHOLD)" >&2
+echo "$(date '+%Y-%m-%d %H:%M:%S') -   CONFIG_VALUE: $ACTIVE_CONFIG_VALUE" >&2
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   SYNCHRONOUS_SCANS: $SYNCHRONOUS_SCANS" >&2
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   USE_GCS: $USE_GCS" >&2
 echo "$(date '+%Y-%m-%d %H:%M:%S') -   LOCAL_TEST_DATA_DIR: $LOCAL_TEST_DATA_DIR" >&2
