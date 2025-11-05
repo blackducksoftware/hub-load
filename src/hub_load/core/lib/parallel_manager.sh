@@ -21,25 +21,46 @@ init_parallel_manager() {
     local max_jobs=${MAX_PARALLEL_JOBS:-3}
     
     log_info "Initializing parallel manager with max $max_jobs concurrent jobs"
-    
-    # Create parallel logs directory - detect environment
+    log_info "Instance ID: ${INSTANCE_ID}"
+    log_info "Session ID: ${RUN_SESSION_ID}"
+
+    # Create parallel logs directory with instance isolation - detect environment
     local log_dir
     if [ -n "$LOG_DIR" ]; then
-        # Use explicitly set LOG_DIR
-        log_dir="${LOG_DIR}/parallel"
+        # Use explicitly set LOG_DIR with instance isolation
+        log_dir="${LOG_DIR}/${INSTANCE_ID}/parallel"
     elif [ -d "/app/logs" ]; then
-        # Docker environment
-        log_dir="/app/logs/parallel"
+        # Docker environment with instance isolation
+        log_dir="/app/logs/${INSTANCE_ID}/parallel"
     else
-        # Local/development environment
-        log_dir="/tmp/hub_load_logs/parallel"
+        # Local/development environment with instance isolation
+        log_dir="/tmp/hub_load_logs/${INSTANCE_ID}/parallel"
     fi
-    
+
     mkdir -p "$log_dir"
-    
+
+    # Optional: Clean old log files from previous runs of this instance
+    if [ "${CLEAN_OLD_LOGS:-no}" == "yes" ]; then
+        local old_log_count=$(find "$log_dir" -name "*.log" -o -name "*.meta" 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$old_log_count" -gt 0 ]; then
+            log_info "Cleaning $old_log_count old log files from previous runs..."
+            find "$log_dir" -name "*.log" -delete 2>/dev/null || true
+            find "$log_dir" -name "*.meta" -delete 2>/dev/null || true
+            log_success "Old logs cleaned"
+        fi
+    else
+        # Report old log count for user awareness
+        local old_log_count=$(find "$log_dir" -name "*.log" -o -name "*.meta" 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$old_log_count" -gt 0 ]; then
+            log_info "Found $old_log_count log files from previous runs (set CLEAN_OLD_LOGS=yes to auto-clean)"
+        fi
+    fi
+
     export PARALLEL_LOG_DIR="$log_dir"
     export MAX_PARALLEL_JOBS="$max_jobs"
-    
+
+    log_info "Log directory: ${PARALLEL_LOG_DIR}"
+
     return 0
 }
 

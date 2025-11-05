@@ -59,12 +59,11 @@ init_scan_manager() {
     SNIPPET_SCAN_MEDIUM_COUNT=0
     SNIPPET_SCAN_LARGE_COUNT=0
     SNIPPET_SCAN_XLARGE_COUNT=0
-    
-    # Initialize parallel manager if needed
-    if [ "${PARALLEL_SCANS}" == "yes" ]; then
-        init_parallel_manager
-    fi
-    
+
+    # Initialize parallel manager (always, for log directory setup with instance isolation)
+    # This sets up PARALLEL_LOG_DIR with INSTANCE_ID even in sequential mode
+    init_parallel_manager
+
     return 0
 }
 
@@ -187,7 +186,8 @@ execute_single_scan() {
     local version_name="v${version}-${full_timestamp}"
 
     # Determine log file path for this scan with detailed timestamp
-    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
+    # PARALLEL_LOG_DIR should always be set by init_parallel_manager(), but include instance-aware fallback
+    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/${INSTANCE_ID}/parallel}"
 
     # Ensure log directory exists before writing files
     mkdir -p "$log_dir"
@@ -988,7 +988,8 @@ print_scan_statistics() {
     log_info ""
 
     # Count scan types from log files for accurate reporting (works for both parallel and sequential)
-    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
+    # PARALLEL_LOG_DIR should always be set by init_parallel_manager(), but include instance-aware fallback
+    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/${INSTANCE_ID}/parallel}"
     local total_scans=0
 
     # Initialize counters for accurate counting from log files
