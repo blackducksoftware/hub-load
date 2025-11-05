@@ -7,6 +7,19 @@
 export HUB_LOAD_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export CONFIG_DIR="$(dirname "$(dirname "$HUB_LOAD_LIB_DIR")")/config"
 
+# Instance ID - unique identifier for this test instance (for running multiple tests concurrently)
+# Set INSTANCE_ID externally for custom naming, or auto-generate from hostname-PID
+# Format: hostname-PID (e.g., perflab1-123456 or docker-container-789)
+if [ -z "$INSTANCE_ID" ]; then
+    export INSTANCE_ID="$(hostname 2>/dev/null || echo 'local')-$$"
+fi
+
+# Run session ID - generated once per test run to distinguish log files from different runs
+# Format: YYYYMMDD-HHMMSS-RANDOM (e.g., 20251105-123456-12345)
+if [ -z "$RUN_SESSION_ID" ]; then
+    export RUN_SESSION_ID="$(date '+%Y%m%d-%H%M%S')-$$"
+fi
+
 # Default configuration
 export DEFAULT_MAX_SCANS=3
 export DEFAULT_MAX_PARALLEL_JOBS=3
@@ -101,7 +114,7 @@ load_config() {
     # Set FIXED_COMPONENTS default based on scan type
     # Binary and container scans use 1 file, signature scans use 2 files by default
     if [ -z "${FIXED_COMPONENTS}" ]; then
-        if [ "${SCAN_TYPE}" == "BINARY_SCAN" ] || [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ]; then
+        if [ "${SCAN_TYPE}" == "BINARY_SCAN" ] || [ "${SCAN_TYPE}" == "CONTAINER_SCAN" ] || [ "${SCAN_TYPE}" == "SNIPPET_SCAN" ]; then
             export FIXED_COMPONENTS=1
         else
             export FIXED_COMPONENTS="${FIXED_COMPONENTS}:-2"

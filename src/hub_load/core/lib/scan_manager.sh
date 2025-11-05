@@ -192,8 +192,12 @@ execute_single_scan() {
     # Ensure log directory exists before writing files
     mkdir -p "$log_dir"
 
-    local log_file="${log_dir}/${scan_id}_v${version}_cl${codelocation_num}_${scan_timestamp}_${scan_type_size}.log"
-    local metadata_file="${log_dir}/${scan_id}_v${version}_cl${codelocation_num}_${scan_timestamp}_${scan_type_size}.meta"
+    # Use consistent naming with RUN_SESSION_ID prefix to distinguish runs
+    # Format: RUN_SESSION_ID__scan_type_projectname_scanid
+    # This allows filtering scans by run session in summary
+    local base_name="${RUN_SESSION_ID}__${scan_type}_${project_name}_${scan_id}"
+    local log_file="${log_dir}/${base_name}.log"
+    local metadata_file="${log_dir}/${base_name}.meta"
 
     # Generate codelocation name with randomization and timestamp for easy tracking
     local cl_random=$RANDOM
@@ -227,30 +231,71 @@ execute_single_scan() {
             log_info "Using discovered files for scan (${#SELECTED_PROJECT_FILES[@]} files)"
         fi
 
-        # Create symbolic links or copy files to scan directory
+        # Check if this is a snippet scan
+        local is_snippet_scan="no"
+        if [ "${snippets}" == "yes" ] || [[ "$scan_type_size" == *"SNIPPET"* ]]; then
+            is_snippet_scan="yes"
+            if [ "${DEBUG}" == "yes" ]; then
+                log_info "Snippet scan detected - will extract tar.gz files"
+            fi
+        fi
+
+        # Create symbolic links or extract files to scan directory
         local linked_count=0
         local total_size_bytes=0
         local file_list=()
         for source_file in "${SELECTED_PROJECT_FILES[@]}"; do
             if [ -f "$source_file" ]; then
                 local filename=$(basename "$source_file")
-                if ln -sf "$source_file" "$scan_dir/$filename" 2>/dev/null; then
-                    ((linked_count++))
-                    # Calculate file size (cross-platform)
-                    local file_size
-                    if command -v stat >/dev/null 2>&1; then
-                        # Try macOS format first, then Linux format
-                        file_size=$(stat -f%z "$source_file" 2>/dev/null || stat -c%s "$source_file" 2>/dev/null || echo 0)
-                    else
-                        file_size=0
-                    fi
-                    total_size_bytes=$((total_size_bytes + file_size))
 
-                    # Store filename and path for logging
+                # For snippet scans, extract tar.gz files instead of linking
+                if [ "$is_snippet_scan" == "yes" ] && [[ "$filename" == *.tar.gz ]]; then
                     if [ "${DEBUG}" == "yes" ]; then
-                        file_list+=("$source_file")
+                        log_info "Extracting snippet archive: $filename"
+                    fi
+
+                    # Extract tar.gz to scan directory
+                    if tar -xzf "$source_file" -C "$scan_dir" 2>/dev/null; then
+                        ((linked_count++))
+                        # Calculate file size (cross-platform)
+                        local file_size
+                        if command -v stat >/dev/null 2>&1; then
+                            # Try macOS format first, then Linux format
+                            file_size=$(stat -f%z "$source_file" 2>/dev/null || stat -c%s "$source_file" 2>/dev/null || echo 0)
+                        else
+                            file_size=0
+                        fi
+                        total_size_bytes=$((total_size_bytes + file_size))
+
+                        # Store filename and path for logging
+                        if [ "${DEBUG}" == "yes" ]; then
+                            file_list+=("$source_file (extracted)")
+                        else
+                            file_list+=("$filename (extracted)")
+                        fi
                     else
-                        file_list+=("$filename")
+                        log_warning "Failed to extract: $filename"
+                    fi
+                else
+                    # For non-snippet scans or non-tar.gz files, create symlinks as before
+                    if ln -sf "$source_file" "$scan_dir/$filename" 2>/dev/null; then
+                        ((linked_count++))
+                        # Calculate file size (cross-platform)
+                        local file_size
+                        if command -v stat >/dev/null 2>&1; then
+                            # Try macOS format first, then Linux format
+                            file_size=$(stat -f%z "$source_file" 2>/dev/null || stat -c%s "$source_file" 2>/dev/null || echo 0)
+                        else
+                            file_size=0
+                        fi
+                        total_size_bytes=$((total_size_bytes + file_size))
+
+                        # Store filename and path for logging
+                        if [ "${DEBUG}" == "yes" ]; then
+                            file_list+=("$source_file")
+                        else
+                            file_list+=("$filename")
+                        fi
                     fi
                 fi
             fi
@@ -288,7 +333,11 @@ execute_single_scan() {
                 file_names_str=${file_names_str:2}  # Remove leading ", "
                 log_info "   └─ Files: $file_names_str"
             else
-                log_success "Prepared $linked_count files using symbolic links (Total size: $total_size_display)"
+                if [ "$is_snippet_scan" == "yes" ]; then
+                    log_success "Prepared $linked_count files by extracting archives (Total size: $total_size_display)"
+                else
+                    log_success "Prepared $linked_count files using symbolic links (Total size: $total_size_display)"
+                fi
                 # List full paths in DEBUG mode
                 log_info "Selected files:"
                 for file_path in "${file_list[@]}"; do
@@ -297,7 +346,7 @@ execute_single_scan() {
             fi
         else
             log_error "═══════════════════════════════════════════════════════════"
-            log_error "❌ SCAN FAILED: Unable to link discovered files to scan directory"
+            log_error "❌ SCAN FAILED: Unable to prepare files for scan"
             log_error "═══════════════════════════════════════════════════════════"
             log_error "Scan Type: ${scan_type_size}"
             log_error "Scan Directory: ${scan_dir}"
@@ -305,6 +354,7 @@ execute_single_scan() {
             log_error "This usually indicates:"
             log_error "  • File permission issues"
             log_error "  • Filesystem doesn't support symbolic links"
+            log_error "  • Failed to extract tar.gz archives (for snippet scans)"
             log_error "  • Source files were deleted or moved"
             log_error ""
             log_error "Check file permissions and ensure test data is accessible"
@@ -859,6 +909,55 @@ extract_scan_results() {
         [ -z "$codelocation_name" ] && codelocation_name="N/A"
     fi
 
+    # Extract scan type and size from filename if not in metadata
+    if [ "$scan_type_size" == "N/A" ] || [ -z "$scan_type_size" ]; then
+        local filename=$(basename "$log_file" .log)
+        # Try to extract from detect.tools parameter first
+        if grep -q "detect.tools='BINARY_SCAN'" "$log_file" 2>/dev/null; then
+            scan_type_size="BINARY_SCAN"
+        elif grep -q "detect.tools='CONTAINER_SCAN'" "$log_file" 2>/dev/null; then
+            scan_type_size="CONTAINER_SCAN"
+        elif grep -q "detect.tools='SIGNATURE_SCAN'" "$log_file" 2>/dev/null; then
+            if grep -q "snippet.matching=SNIPPET_MATCHING" "$log_file" 2>/dev/null; then
+                scan_type_size="SNIPPET_SCAN"
+            else
+                scan_type_size="SIGNATURE_SCAN"
+            fi
+        fi
+
+        # Try to extract size from filename
+        if echo "$filename" | grep -qi "_small\|small"; then
+            scan_type_size="${scan_type_size}_SMALL"
+        elif echo "$filename" | grep -qi "_large\|large"; then
+            scan_type_size="${scan_type_size}_LARGE"
+        elif echo "$filename" | grep -qi "_xlarge\|xlarge"; then
+            scan_type_size="${scan_type_size}_XLARGE"
+        elif echo "$filename" | grep -qi "_medium\|medium"; then
+            scan_type_size="${scan_type_size}_MEDIUM"
+        fi
+    fi
+
+    # Extract files used from log if not in metadata
+    if [ "$files_used" == "N/A" ]; then
+        # Try to find the "Files:" line in the log
+        files_used=$(grep "└─ Files:" "$log_file" 2>/dev/null | head -1 | sed 's/.*└─ Files: //')
+        if [ -z "$files_used" ]; then
+            files_used=$(grep "Selected files:" -A 10 "$log_file" 2>/dev/null | grep "•" | sed 's/.*• //' | tr '\n' ', ' | sed 's/, $//')
+        fi
+        [ -z "$files_used" ] && files_used="N/A"
+    fi
+
+    # Extract start time from log if not in metadata
+    if [ "$start_time" == "N/A" ]; then
+        # Try to get timestamp from "PARALLEL JOB STARTED" line or first timestamp in file
+        start_time=$(grep "Started:" "$log_file" 2>/dev/null | head -1 | sed 's/.*Started: //')
+        if [ -z "$start_time" ]; then
+            # Get first timestamp from log file
+            start_time=$(grep -o "^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}" "$log_file" 2>/dev/null | head -1)
+        fi
+        [ -z "$start_time" ] && start_time="N/A"
+    fi
+
     # Extract scan ID from Black Duck Detect output (BSD grep compatible)
     if [ "$scan_id" == "N/A" ]; then
         scan_id=$(grep -o "[a-f0-9]\{8\}-[a-f0-9]\{4\}-[a-f0-9]\{4\}-[a-f0-9]\{4\}-[a-f0-9]\{12\}" "$log_file" 2>/dev/null | head -1)
@@ -888,42 +987,128 @@ print_scan_statistics() {
     log_info "==============================================="
     log_info ""
 
-    local total_scans=$((SIGNATURE_SCAN_COUNT + BINARY_SCAN_COUNT + CONTAINER_SCAN_COUNT + SNIPPET_SCAN_COUNT))
+    # Count scan types from log files for accurate reporting (works for both parallel and sequential)
+    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
+    local total_scans=0
 
+    # Initialize counters for accurate counting from log files
+    local sig_count=0 bin_count=0 cont_count=0 snip_count=0
+    local sig_small=0 sig_med=0 sig_large=0 sig_xlarge=0
+    local bin_small=0 bin_med=0 bin_large=0 bin_xlarge=0
+    local cont_small=0 cont_med=0 cont_large=0 cont_xlarge=0
+    local snip_small=0 snip_med=0 snip_large=0 snip_xlarge=0
+
+    # Count from metadata files if they exist (only from current run session)
+    # Use .meta files instead of .log files because metadata is created at scan start
+    # while log files may not exist yet for running/failed scans
+    if [ -d "$log_dir" ]; then
+        for metadata_file in "$log_dir"/${RUN_SESSION_ID}__*.meta; do
+            if [ -f "$metadata_file" ]; then
+                # Extract scan type from metadata file
+                local scan_type_size="N/A"
+
+                # Metadata file always has SCAN_TYPE_SIZE field
+                scan_type_size=$(grep "^SCAN_TYPE_SIZE=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+
+                # Get corresponding log file for additional checks if needed
+                local log_file="${metadata_file%.meta}.log"
+
+                # Fallback to log file content if metadata doesn't have scan type
+                if [ "$scan_type_size" == "N/A" ] || [ -z "$scan_type_size" ]; then
+                    # Only try log file if it exists
+                    if [ -f "$log_file" ]; then
+                        # Try to extract from detect command in log
+                        if grep -q "detect.tools='BINARY_SCAN'" "$log_file" 2>/dev/null; then
+                            scan_type_size="BINARY_SCAN"
+                        elif grep -q "detect.tools='CONTAINER_SCAN'" "$log_file" 2>/dev/null; then
+                            scan_type_size="CONTAINER_SCAN"
+                        elif grep -q "detect.tools='SIGNATURE_SCAN'" "$log_file" 2>/dev/null; then
+                            # Check if snippet scan
+                            if grep -q "snippet.matching=SNIPPET_MATCHING" "$log_file" 2>/dev/null; then
+                                scan_type_size="SNIPPET_SCAN"
+                            else
+                                scan_type_size="SIGNATURE_SCAN"
+                            fi
+                        fi
+
+                        # Try to infer size from filename or default to MEDIUM
+                        if echo "$metadata_file" | grep -qi "_SMALL"; then
+                            scan_type_size="${scan_type_size}_SMALL"
+                        elif echo "$metadata_file" | grep -qi "_LARGE"; then
+                            scan_type_size="${scan_type_size}_LARGE"
+                        elif echo "$metadata_file" | grep -qi "_XLARGE"; then
+                            scan_type_size="${scan_type_size}_XLARGE"
+                        elif echo "$metadata_file" | grep -qi "_MEDIUM"; then
+                            scan_type_size="${scan_type_size}_MEDIUM"
+                        fi
+                    else
+                        # If log file doesn't exist, try to infer from metadata filename
+                        if echo "$metadata_file" | grep -qi "BINARY_SCAN"; then
+                            scan_type_size="BINARY_SCAN"
+                        elif echo "$metadata_file" | grep -qi "CONTAINER_SCAN"; then
+                            scan_type_size="CONTAINER_SCAN"
+                        elif echo "$metadata_file" | grep -qi "SIGNATURE_SCAN"; then
+                            scan_type_size="SIGNATURE_SCAN"
+                        fi
+                    fi
+                fi
+
+                # Count scan types
+                total_scans=$((total_scans + 1))
+                case "$scan_type_size" in
+                    SIGNATURE_SCAN_SMALL) sig_count=$((sig_count + 1)); sig_small=$((sig_small + 1)) ;;
+                    SIGNATURE_SCAN_MEDIUM|SIGNATURE_SCAN) sig_count=$((sig_count + 1)); sig_med=$((sig_med + 1)) ;;
+                    SIGNATURE_SCAN_LARGE) sig_count=$((sig_count + 1)); sig_large=$((sig_large + 1)) ;;
+                    SIGNATURE_SCAN_XLARGE) sig_count=$((sig_count + 1)); sig_xlarge=$((sig_xlarge + 1)) ;;
+                    BINARY_SCAN_SMALL) bin_count=$((bin_count + 1)); bin_small=$((bin_small + 1)) ;;
+                    BINARY_SCAN_MEDIUM|BINARY_SCAN) bin_count=$((bin_count + 1)); bin_med=$((bin_med + 1)) ;;
+                    BINARY_SCAN_LARGE) bin_count=$((bin_count + 1)); bin_large=$((bin_large + 1)) ;;
+                    BINARY_SCAN_XLARGE) bin_count=$((bin_count + 1)); bin_xlarge=$((bin_xlarge + 1)) ;;
+                    CONTAINER_SCAN_SMALL) cont_count=$((cont_count + 1)); cont_small=$((cont_small + 1)) ;;
+                    CONTAINER_SCAN_MEDIUM|CONTAINER_SCAN) cont_count=$((cont_count + 1)); cont_med=$((cont_med + 1)) ;;
+                    CONTAINER_SCAN_LARGE) cont_count=$((cont_count + 1)); cont_large=$((cont_large + 1)) ;;
+                    CONTAINER_SCAN_XLARGE) cont_count=$((cont_count + 1)); cont_xlarge=$((cont_xlarge + 1)) ;;
+                    SNIPPET_SCAN_SMALL) snip_count=$((snip_count + 1)); snip_small=$((snip_small + 1)) ;;
+                    SNIPPET_SCAN_MEDIUM|SNIPPET_SCAN) snip_count=$((snip_count + 1)); snip_med=$((snip_med + 1)) ;;
+                    SNIPPET_SCAN_LARGE) snip_count=$((snip_count + 1)); snip_large=$((snip_large + 1)) ;;
+                    SNIPPET_SCAN_XLARGE) snip_count=$((snip_count + 1)); snip_xlarge=$((snip_xlarge + 1)) ;;
+                esac
+            fi
+        done
+    fi
+
+    # Display scan type distribution
     log_info "Scan Type Distribution:"
-    log_info "  • SIGNATURE_SCAN: $SIGNATURE_SCAN_COUNT scans"
-    if [ "$SIGNATURE_SCAN_SMALL_COUNT" -gt 0 ] || [ "$SIGNATURE_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$SIGNATURE_SCAN_LARGE_COUNT" -gt 0 ] || [ "$SIGNATURE_SCAN_XLARGE_COUNT" -gt 0 ]; then
-        log_info "    ├─ SMALL:  $SIGNATURE_SCAN_SMALL_COUNT"
-        log_info "    ├─ MEDIUM: $SIGNATURE_SCAN_MEDIUM_COUNT"
-        log_info "    ├─ LARGE:  $SIGNATURE_SCAN_LARGE_COUNT"
-        log_info "    └─ XLARGE: $SIGNATURE_SCAN_XLARGE_COUNT"
+    log_info "  • SIGNATURE_SCAN: $sig_count scans"
+    if [ "$sig_small" -gt 0 ] || [ "$sig_med" -gt 0 ] || [ "$sig_large" -gt 0 ] || [ "$sig_xlarge" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $sig_small"
+        log_info "    ├─ MEDIUM: $sig_med"
+        log_info "    ├─ LARGE:  $sig_large"
+        log_info "    └─ XLARGE: $sig_xlarge"
     fi
-    log_info "  • BINARY_SCAN: $BINARY_SCAN_COUNT scans"
-    if [ "$BINARY_SCAN_SMALL_COUNT" -gt 0 ] || [ "$BINARY_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$BINARY_SCAN_LARGE_COUNT" -gt 0 ] || [ "$BINARY_SCAN_XLARGE_COUNT" -gt 0 ]; then
-        log_info "    ├─ SMALL:  $BINARY_SCAN_SMALL_COUNT"
-        log_info "    ├─ MEDIUM: $BINARY_SCAN_MEDIUM_COUNT"
-        log_info "    ├─ LARGE:  $BINARY_SCAN_LARGE_COUNT"
-        log_info "    └─ XLARGE: $BINARY_SCAN_XLARGE_COUNT"
+    log_info "  • BINARY_SCAN: $bin_count scans"
+    if [ "$bin_small" -gt 0 ] || [ "$bin_med" -gt 0 ] || [ "$bin_large" -gt 0 ] || [ "$bin_xlarge" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $bin_small"
+        log_info "    ├─ MEDIUM: $bin_med"
+        log_info "    ├─ LARGE:  $bin_large"
+        log_info "    └─ XLARGE: $bin_xlarge"
     fi
-    log_info "  • CONTAINER_SCAN: $CONTAINER_SCAN_COUNT scans"
-    if [ "$CONTAINER_SCAN_SMALL_COUNT" -gt 0 ] || [ "$CONTAINER_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$CONTAINER_SCAN_LARGE_COUNT" -gt 0 ] || [ "$CONTAINER_SCAN_XLARGE_COUNT" -gt 0 ]; then
-        log_info "    ├─ SMALL:  $CONTAINER_SCAN_SMALL_COUNT"
-        log_info "    ├─ MEDIUM: $CONTAINER_SCAN_MEDIUM_COUNT"
-        log_info "    ├─ LARGE:  $CONTAINER_SCAN_LARGE_COUNT"
-        log_info "    └─ XLARGE: $CONTAINER_SCAN_XLARGE_COUNT"
+    log_info "  • CONTAINER_SCAN: $cont_count scans"
+    if [ "$cont_small" -gt 0 ] || [ "$cont_med" -gt 0 ] || [ "$cont_large" -gt 0 ] || [ "$cont_xlarge" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $cont_small"
+        log_info "    ├─ MEDIUM: $cont_med"
+        log_info "    ├─ LARGE:  $cont_large"
+        log_info "    └─ XLARGE: $cont_xlarge"
     fi
-    log_info "  • SNIPPET_SCAN: $SNIPPET_SCAN_COUNT scans"
-    if [ "$SNIPPET_SCAN_SMALL_COUNT" -gt 0 ] || [ "$SNIPPET_SCAN_MEDIUM_COUNT" -gt 0 ] || [ "$SNIPPET_SCAN_LARGE_COUNT" -gt 0 ] || [ "$SNIPPET_SCAN_XLARGE_COUNT" -gt 0 ]; then
-        log_info "    ├─ SMALL:  $SNIPPET_SCAN_SMALL_COUNT"
-        log_info "    ├─ MEDIUM: $SNIPPET_SCAN_MEDIUM_COUNT"
-        log_info "    ├─ LARGE:  $SNIPPET_SCAN_LARGE_COUNT"
-        log_info "    └─ XLARGE: $SNIPPET_SCAN_XLARGE_COUNT"
+    log_info "  • SNIPPET_SCAN: $snip_count scans"
+    if [ "$snip_small" -gt 0 ] || [ "$snip_med" -gt 0 ] || [ "$snip_large" -gt 0 ] || [ "$snip_xlarge" -gt 0 ]; then
+        log_info "    ├─ SMALL:  $snip_small"
+        log_info "    ├─ MEDIUM: $snip_med"
+        log_info "    ├─ LARGE:  $snip_large"
+        log_info "    └─ XLARGE: $snip_xlarge"
     fi
     log_info "  • TOTAL: $total_scans scans"
     log_info ""
-
-    # Print detailed scan results for both sequential and parallel modes
-    local log_dir="${PARALLEL_LOG_DIR:-${LOG_DIR:-/app/logs}/parallel}"
 
     if [ "${PARALLEL_SCANS}" == "yes" ]; then
         log_info "Parallel Execution Results:"
@@ -947,10 +1132,28 @@ print_scan_statistics() {
         printf "%-20s %-15s %-10s %-30s %-19s %-19s\n" "SCAN TYPE" "SIZE" "STATUS" "PROJECT" "START TIME" "COMPLETION TIME"
         printf "%-20s %-15s %-10s %-30s %-19s %-19s\n" "--------------------" "---------------" "----------" "------------------------------" "-------------------" "-------------------"
 
-        for log_file in "$log_dir"/*.log; do
-            if [ -f "$log_file" ]; then
-                local job_name=$(basename "$log_file" .log)
-                local result_line=$(extract_scan_results "$log_file" "$job_name")
+        # Only show scans from current run session (use .meta files)
+        for metadata_file in "$log_dir"/${RUN_SESSION_ID}__*.meta; do
+            if [ -f "$metadata_file" ]; then
+                # Get corresponding log file for result extraction
+                local log_file="${metadata_file%.meta}.log"
+                local job_name=$(basename "$metadata_file" .meta)
+
+                # Extract results from log file if it exists, otherwise use metadata
+                local result_line
+                if [ -f "$log_file" ]; then
+                    result_line=$(extract_scan_results "$log_file" "$job_name")
+                else
+                    # Build result line from metadata if log doesn't exist
+                    local scan_id=$(grep "^SCAN_ID=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+                    local project=$(grep "^PROJECT_NAME=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+                    local version=$(grep "^VERSION_NAME=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+                    local codelocation=$(grep "^CODELOCATION_NAME=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+                    local scan_type_size=$(grep "^SCAN_TYPE_SIZE=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+                    local files=$(grep "^FILES_USED=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+                    local start_time=$(grep "^SCAN_START_TIMESTAMP=" "$metadata_file" 2>/dev/null | cut -d'=' -f2)
+                    result_line="STATUS=RUNNING|SCAN_ID=${scan_id:-N/A}|BOM_URL=N/A|PROJECT=${project:-N/A}|VERSION=${version:-N/A}|CODELOCATION=${codelocation:-N/A}|SCAN_TYPE_SIZE=${scan_type_size:-N/A}|FILES=${files:-N/A}|START_TIME=${start_time:-N/A}|COMPLETION_TIME=N/A"
+                fi
 
                 # Parse result (BSD grep compatible)
                 local status=$(echo "$result_line" | sed -n 's/.*STATUS=\([^|]*\).*/\1/p')

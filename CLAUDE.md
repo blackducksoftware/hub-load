@@ -228,6 +228,23 @@ kubectl scale deployment <deployment-name> --replicas=10 -n hub-load
 
 **Example**: `MAX_VERSIONS=2 MAX_CODELOCATIONS=3` creates 6 total scans (2 versions × 3 codelocations)
 
+### Instance Isolation and Session Tracking (NEW - Nov 5, 2025)
+- `INSTANCE_ID`: Unique identifier for running multiple concurrent test instances (auto-generated: `hostname-PID`)
+- `RUN_SESSION_ID`: Unique session ID per test run to filter logs (auto-generated: `YYYYMMDD-HHMMSS-PID`)
+- `CLEAN_OLD_LOGS`: Clean old log files from previous runs at startup (yes/no, default: no)
+
+**Example**: Run 3 concurrent test instances without conflicts:
+```bash
+INSTANCE_ID="test-1" ./src/hub_load/core/hub_load_main.sh &
+INSTANCE_ID="test-2" ./src/hub_load/core/hub_load_main.sh &
+INSTANCE_ID="test-3" ./src/hub_load/core/hub_load_main.sh &
+```
+
+Each instance gets isolated log directories:
+- `/tmp/hub_load_logs/test-1/parallel/`
+- `/tmp/hub_load_logs/test-2/parallel/`
+- `/tmp/hub_load_logs/test-3/parallel/`
+
 ## Recent Updates: Legacy Compatibility & Enhancements (November 2025)
 
 The modular architecture was recently enhanced with complete legacy compatibility while maintaining all modular benefits:
@@ -365,6 +382,205 @@ All changes are fully backward compatible:
 
 For complete details, see `COMPLETE_MODULAR_UPDATES.md`.
 
+### 8. Snippet Scan File Extraction Fix (Nov 5, 2025)
+
+**Problem**: Snippet scans were failing because tar.gz files were being symlinked to the scan directory instead of being extracted. Black Duck Detect's signature scanner with snippet matching requires the actual source code, not archived files.
+
+**Symptoms**:
+```
+❌ Command failed with exit code 1 at line 373
+--detect.source.path='/tmp/scan_.../cl-1/source'  # contained symlink to .tar.gz
+```
+
+**Solution**: Modified `scan_manager.sh` (lines 234-302) to detect snippet scans and extract tar.gz files instead of creating symlinks:
+
+```bash
+# Check if this is a snippet scan
+if [ "${snippets}" == "yes" ] || [[ "$scan_type_size" == *"SNIPPET"* ]]; then
+    # Extract tar.gz to scan directory
+    tar -xzf "$source_file" -C "$scan_dir"
+    # Log as "(extracted)" for clarity
+fi
+```
+
+**Benefits**:
+- ✅ Snippet scans now properly extract source code from tar.gz archives
+- ✅ Signature scanner can perform snippet matching on actual source files
+- ✅ Log output clearly shows "(extracted)" status for snippet archives
+- ✅ Backward compatible - non-snippet scans still use symlinks for performance
+
+**Testing**:
+```bash
+source src/hub_load/config/debug_snippet_scan.sh
+export USE_GCS=no MAX_SCANS=1
+./src/hub_load/core/hub_load_main.sh
+
+# Output shows:
+# Files: SCASS_SCA_SNIPPETS_996.ICU.tar.gz (extracted)
+# Source directory contains extracted source files, not tar.gz
+```
+
+See `src/hub_load/core/lib/scan_manager.sh:234-302` for implementation details.
+
+### 9. Summary Counting Fix for .meta Files (Nov 5, 2025)
+
+**Problem**: The scan summary was showing 0 scans for all types even when scans were running, because the counting logic was looking for `.log` files which don't exist until scans complete.
+
+**Root Cause**: In `scan_manager.sh:1003` and `1136`, the summary logic was iterating over:
+```bash
+for log_file in "$log_dir"/${RUN_SESSION_ID}__*.log; do
+```
+
+But `.log` files are only created after scans complete. For running or failed scans, only `.meta` files exist (created at scan start).
+
+**Solution**: Changed the summary logic to iterate over `.meta` files instead (lines 1005, 1136):
+
+```bash
+for metadata_file in "$log_dir"/${RUN_SESSION_ID}__*.meta; do
+    # Extract scan type from metadata
+    scan_type_size=$(grep "^SCAN_TYPE_SIZE=" "$metadata_file" | cut -d'=' -f2)
+
+    # Build result from metadata if log doesn't exist
+    if [ ! -f "$log_file" ]; then
+        # Extract from metadata: PROJECT_NAME, VERSION_NAME, SCAN_TYPE_SIZE, etc.
+    fi
+done
+```
+
+**Benefits**:
+- ✅ Summary now shows running scans, not just completed ones
+- ✅ Works on macOS, Linux, and all platforms
+- ✅ Scan counts are accurate from scan start, not scan completion
+- ✅ Failed scans are also counted (previously invisible)
+
+**Testing**:
+```bash
+# With 4 snippet scans from session 20251105-112122-24631
+RUN_SESSION_ID="20251105-112122-24631" print_scan_statistics
+
+# Output now shows:
+# • SNIPPET_SCAN: 4 scans (was 0 before fix)
+# • TOTAL: 4 scans (was 0 before fix)
+```
+
+See `src/hub_load/core/lib/scan_manager.sh:1001-1060` (count logic) and `1135-1156` (detailed results).
+
+### 10. Summary Reporting and Instance Isolation Fixes (Nov 5, 2025)
+
+Critical fixes to summary reporting and support for running multiple concurrent test instances:
+
+#### Run Session ID Tracking
+
+**Problem**: Log directories accumulated files from multiple test runs, causing summaries to count ALL historical logs instead of just the current run (e.g., reporting 1247 scans when only 480 were run).
+
+**Solution**: Added `RUN_SESSION_ID` to distinguish between different test runs:
+
+```bash
+# Auto-generated format: YYYYMMDD-HHMMSS-PID
+export RUN_SESSION_ID="20251105-123456-789"
+```
+
+**Log File Naming**: All log files now include the session ID prefix:
+```
+Before: BINARY_SCAN_enhanced-binary_scan_large-10278-on-05112025-092223.log
+After:  20251105-123456-789__BINARY_SCAN_enhanced-binary_scan_large-10278-on-05112025-092223.log
+```
+
+**Summary Filtering**: All summary functions now filter by `RUN_SESSION_ID` to count only current run scans:
+- Scan type distribution (scan_manager.sh:957)
+- Detailed results table (scan_manager.sh:1076)
+- Job status summary (parallel_manager.sh:211)
+- Job results extraction (parallel_manager.sh:236)
+
+#### Instance Isolation for Concurrent Tests
+
+**Problem**: Running multiple test instances from the same machine caused log file conflicts and mixed scan results.
+
+**Solution**: Added `INSTANCE_ID` to provide complete isolation between concurrent test instances:
+
+```bash
+# Auto-generated format: hostname-PID
+export INSTANCE_ID="perflab1-123456"
+
+# Or set explicitly for clarity
+export INSTANCE_ID="test-instance-1"
+```
+
+**Instance-Specific Directories**:
+```
+/tmp/hub_load_logs/
+├── test-instance-1/parallel/  # Instance 1 logs
+├── test-instance-2/parallel/  # Instance 2 logs
+└── test-instance-3/parallel/  # Instance 3 logs
+```
+
+**Running Multiple Instances**:
+
+Method 1 - Using helper script:
+```bash
+./run_multiple_tests.sh 3  # Launches 3 instances automatically
+```
+
+Method 2 - Manual launch:
+```bash
+INSTANCE_ID="test-1" nohup ./src/hub_load/core/hub_load_main.sh > test1.log 2>&1 &
+INSTANCE_ID="test-2" nohup ./src/hub_load/core/hub_load_main.sh > test2.log 2>&1 &
+INSTANCE_ID="test-3" nohup ./src/hub_load/core/hub_load_main.sh > test3.log 2>&1 &
+```
+
+Each instance maintains:
+- ✅ Separate log directories (no file conflicts)
+- ✅ Independent scan tracking (accurate counts per instance)
+- ✅ Isolated summaries (each shows only its scans)
+- ✅ Shared test data access (read-only, safe)
+
+See `RUNNING_MULTIPLE_INSTANCES.md` for complete documentation.
+
+#### Summary Accuracy Improvements
+
+**Fixed Scan Type Counting** (scan_manager.sh:891-1004):
+- Changed from global counters (only worked in synchronous mode) to log file-based counting
+- Now accurately counts scan types in both parallel and sequential modes
+- Extracts scan type from metadata files or detect command parameters
+
+**Enhanced Metadata Extraction** (scan_manager.sh:864-917):
+- Improved fallback logic when metadata files are missing
+- Extracts scan type from `detect.tools='BINARY_SCAN'` parameter
+- Infers size variants from filenames (`_large`, `_small`, etc.)
+- Extracts files used, start times, and other metadata from log content
+
+**Consistent File Naming** (scan_manager.sh:195-200):
+- Log files and metadata files now use matching base names
+- Format: `${RUN_SESSION_ID}__${scan_type}_${project_name}_${scan_id}.log`
+- Corresponding metadata: `${RUN_SESSION_ID}__${scan_type}_${project_name}_${scan_id}.meta`
+
+**Results**:
+- Scan type distribution now shows accurate counts (was showing 0 for all types)
+- Detailed results table displays complete metadata (was showing N/A for most fields)
+- Summary totals match actual scans run (480 instead of 1247 accumulated logs)
+
+#### Old Log File Management
+
+**Auto-Detection**: System reports old log count at startup:
+```
+Found 1247 log files from previous runs (set CLEAN_OLD_LOGS=yes to auto-clean)
+```
+
+**Auto-Cleanup** (optional):
+```bash
+CLEAN_OLD_LOGS=yes ./src/hub_load/core/hub_load_main.sh
+```
+
+This removes all `.log` and `.meta` files from the instance log directory before starting.
+
+#### Backward Compatibility
+
+All changes maintain backward compatibility:
+- Auto-generated IDs if not set explicitly
+- Default behavior unchanged (keeps old logs)
+- Works with existing Docker/Kubernetes deployments
+- No breaking changes to environment variables
+
 ## Platform Compatibility
 
 The codebase supports both macOS and Linux:
@@ -413,6 +629,86 @@ API_TOKEN=your-token \
   MAX_SCANS=10 \
   ./src/hub_load/core/hub_load_main.sh
 ```
+
+### Running Multiple Concurrent Test Instances
+
+The system supports running multiple test instances in parallel from the same machine with complete isolation:
+
+**Method 1: Using Helper Script (Recommended)**
+
+```bash
+# Run 3 instances in parallel
+./run_multiple_tests.sh 3
+
+# Custom configuration
+MAX_SCANS=240 TEST_DURATION=4 ./run_multiple_tests.sh 5
+```
+
+**Method 2: Manual Launch**
+
+```bash
+# Launch 3 instances manually with unique IDs
+INSTANCE_ID="test-1" nohup bash -c '
+source src/hub_load/config/debug_mixed_scans.sh
+export API_TOKEN="your-token"
+export BD_HUB_URL="https://your-hub.com"
+export MAX_PARALLEL_JOBS=4
+export MAX_SCANS=480
+export LOCAL_TEST_DATA_DIR="/path/to/SCASS"
+export USE_GCS=no
+./src/hub_load/core/hub_load_main.sh
+' > test1.log 2>&1 &
+
+INSTANCE_ID="test-2" nohup bash -c '
+source src/hub_load/config/debug_mixed_scans.sh
+export API_TOKEN="your-token"
+export BD_HUB_URL="https://your-hub.com"
+export MAX_PARALLEL_JOBS=4
+export MAX_SCANS=480
+export LOCAL_TEST_DATA_DIR="/path/to/SCASS"
+export USE_GCS=no
+./src/hub_load/core/hub_load_main.sh
+' > test2.log 2>&1 &
+
+INSTANCE_ID="test-3" nohup bash -c '
+source src/hub_load/config/debug_mixed_scans.sh
+export API_TOKEN="your-token"
+export BD_HUB_URL="https://your-hub.com"
+export MAX_PARALLEL_JOBS=4
+export MAX_SCANS=480
+export LOCAL_TEST_DATA_DIR="/path/to/SCASS"
+export USE_GCS=no
+./src/hub_load/core/hub_load_main.sh
+' > test3.log 2>&1 &
+```
+
+**Monitoring Multiple Instances**:
+
+```bash
+# Check running instances
+ps aux | grep hub_load_main.sh
+
+# Monitor logs
+tail -f test*.log
+
+# Count scans per instance
+for i in 1 2 3; do
+  echo "Instance $i:";
+  find /tmp/hub_load_logs/test-instance-$i/parallel/ -name "*.log" 2>/dev/null | wc -l
+done
+
+# Real-time progress
+watch -n 5 'for i in 1 2 3; do echo "Instance $i:"; find /tmp/hub_load_logs/test-instance-$i/parallel/ -name "*.log" 2>/dev/null | wc -l; done'
+```
+
+**Benefits**:
+- ✅ Complete isolation between instances
+- ✅ No file conflicts or data corruption
+- ✅ Independent progress tracking
+- ✅ Accurate summaries per instance
+- ✅ Easy migration to Docker/Kubernetes
+
+See `RUNNING_MULTIPLE_INSTANCES.md` for detailed documentation.
 
 ### Adding a New Scan Type Size Variant
 
@@ -788,11 +1084,17 @@ When deploying to a new environment (especially Ubuntu/Linux):
 
 6. **Check logs are being created**:
    ```bash
-   # On Ubuntu/Linux
-   ls -la /tmp/hub_load_logs/parallel/
+   # On Ubuntu/Linux (with auto-generated INSTANCE_ID)
+   ls -la /tmp/hub_load_logs/$(hostname)-$$/parallel/
+
+   # With explicit INSTANCE_ID
+   ls -la /tmp/hub_load_logs/test-instance-1/parallel/
 
    # In Docker
-   ls -la /app/logs/parallel/
+   ls -la /app/logs/$(hostname)-$$/parallel/
+
+   # Old location (pre-Nov 5, 2025)
+   ls -la /tmp/hub_load_logs/parallel/  # Still works if INSTANCE_ID not set
    ```
 
 ## Summary Output
@@ -837,18 +1139,55 @@ Key documentation files:
 Implementation and fix documentation:
 - `SCAN_SUMMARY_ENHANCEMENTS.md`: Scan summary improvements
 - `BINARY_SCAN_UPLOAD_FIX.md`: Binary scan fixes
+- `RUNNING_MULTIPLE_INSTANCES.md`: Multi-instance deployment guide (Nov 5, 2025)
 - `.gitignore`: Security protections for sensitive files
 
 ## Files Created/Modified in Latest Session (Nov 2025)
 
-### New Files
+### Session 1 - Bash Compatibility and Security Fixes
+
+**New Files**:
 - `run_load_test.sh`: Wrapper script for easy execution
 - `.gitignore`: Protects API keys and sensitive data
 
-### Modified Files
+**Modified Files**:
 - `src/hub_load/core/lib/common.sh`: Platform-aware LOG_DIR, Bash compatibility fixes
 - `src/hub_load/core/lib/file_manager.sh`: Removed ternary operators, safe increments
 - `src/hub_load/core/lib/scan_manager.sh`: Safe counter increments (28+ fixes)
 - `src/hub_load/hub_load_test.sh`: Now calls modular architecture
 - `src/run_scans.bash`: Sanitized API tokens
-- `CLAUDE.md`: This file - comprehensive updates
+
+### Session 2 - Summary Reporting and Instance Isolation (Nov 5, 2025)
+
+**New Files**:
+- `run_multiple_tests.sh`: Helper script to launch multiple concurrent test instances
+- `RUNNING_MULTIPLE_INSTANCES.md`: Complete guide for running multiple instances in parallel
+
+**Modified Files**:
+- `src/hub_load/core/lib/common.sh`:
+  - Added `INSTANCE_ID` for multi-instance isolation (line 10-15)
+  - Added `RUN_SESSION_ID` for session tracking (line 17-21)
+
+- `src/hub_load/core/lib/parallel_manager.sh`:
+  - Instance-specific log directories (line 25-36)
+  - Old log file cleanup option (line 40-54)
+  - Session-filtered job status summary (line 211)
+  - Session-filtered results extraction (line 236)
+
+- `src/hub_load/core/lib/scan_manager.sh`:
+  - Session-prefixed log file naming (line 195-200)
+  - Log file-based scan type counting (line 891-1004)
+  - Enhanced metadata extraction fallbacks (line 864-917)
+  - Session-filtered detailed results (line 1076)
+
+- `CLAUDE.md`: This file - comprehensive documentation updates
+
+### Session 3 - Snippet Scan and Summary Fixes (Nov 5, 2025)
+
+**Modified Files**:
+- `src/hub_load/core/lib/scan_manager.sh`:
+  - **Snippet scan tar.gz extraction** (line 234-302): Extract archives instead of symlinking for snippet scans
+  - **Summary counting fix** (line 1001-1060): Use .meta files instead of .log files for accurate counts on all platforms
+  - **Detailed results fix** (line 1135-1156): Use .meta files to show running/failed scans, not just completed ones
+
+- `CLAUDE.md`: This file - documented snippet scan extraction fix and summary counting fix
