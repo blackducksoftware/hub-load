@@ -389,7 +389,7 @@ execute_single_scan() {
     # For signature scans, use codelocation-level directory; for binary/container, use source directory
     local cl_dir="${base_scan_dir}/${project_name}/cl-${codelocation_num}"
     local scan_command
-    scan_command=$(generate_scan_command "$scan_type" "$project_name" "$scan_dir" "$cl_dir" "$version_name" "$cl_name")
+    scan_command=$(generate_scan_command "$scan_type" "$project_name" "$scan_dir" "$cl_dir" "$version_name" "$cl_name" "$base_scan_dir")
 
     # Print the complete Detect command for visibility
     echo ""
@@ -469,6 +469,7 @@ generate_scan_command() {
     local cl_dir="$4"
     local version="$5"
     local cl_name="$6"
+    local base_scan_dir="$7"  # Add base_scan_dir parameter for cleanup
 
     # Change to codelocation directory for execution (matching legacy script)
     local base_command="cd '$cl_dir' && "
@@ -576,6 +577,12 @@ generate_scan_command() {
     # Add failure on severities if specified (common to all scan types)
     if [ "${FAIL_ON_SEVERITIES}" != "NONE" ] && [ -n "${FAIL_ON_SEVERITIES}" ]; then
         base_command+=" --detect.policy.check.fail.on.severities='$FAIL_ON_SEVERITIES'"
+    fi
+
+    # Add cleanup of temporary files after successful scan submission (if enabled)
+    if [ "${CLEANUP_TEMP_FILES:-yes}" == "yes" ] && [ -n "$base_scan_dir" ]; then
+        base_command+=" && rm -rf '$base_scan_dir'"
+        log_debug "Cleanup enabled: Will remove $base_scan_dir after successful scan submission"
     fi
 
     echo "$base_command"

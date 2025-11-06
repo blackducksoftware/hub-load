@@ -76,6 +76,125 @@ Test data can be sourced from:
 
 ## Development Commands
 
+### Complete Parameter Reference for Starting Tests
+
+When starting a test, you can configure the behavior using environment variables. Here's a comprehensive list of all available parameters:
+
+#### Required Parameters
+
+```bash
+API_TOKEN="your-api-token-here"           # Black Duck API token (REQUIRED)
+BD_HUB_URL="https://your-hub.com"         # Black Duck Hub URL (REQUIRED)
+```
+
+#### Test Execution Parameters
+
+```bash
+MAX_SCANS=10                              # Total number of scans to run (default: 3)
+TEST_DURATION_HOURS=4                     # Test duration in hours (default: 8)
+TARGET_DURATION=3600                      # Target seconds per scan for cadence (calculated from TEST_DURATION_HOURS)
+```
+
+#### Scan Type Configuration
+
+```bash
+# Single scan type mode
+SCAN_TYPE=SIGNATURE_SCAN                  # SIGNATURE_SCAN, BINARY_SCAN, or CONTAINER_SCAN (default: SIGNATURE_SCAN)
+
+# Enhanced multi-scan mode (distribute across multiple scan types)
+ENABLE_ENHANCED_MULTI_SCAN=yes            # Enable multi-type distribution (yes/no, default: no)
+MULTI_SCAN_CONFIG="BINARY_SCAN_SMALL:40,SIGNATURE_SCAN_MEDIUM:35,CONTAINER_SCAN_SMALL:25"  # Distribution percentages
+```
+
+#### Data Source Configuration
+
+```bash
+# Local test data (recommended for development)
+USE_GCS=no                                # Use local test data instead of GCS (yes/no, default: no)
+LOCAL_TEST_DATA_DIR="/path/to/test-data/SCASS"  # Path to local test data directory
+
+# Google Cloud Storage (for production)
+USE_GCS=yes                               # Use Google Cloud Storage (yes/no)
+GCS_BUCKET="your-bucket-name"             # GCS bucket name
+GCS_PREFIX="path/to/test-data"            # GCS prefix/folder path
+```
+
+#### Parallel Execution
+
+```bash
+PARALLEL_SCANS=yes                        # Enable parallel execution (yes/no, default: no)
+MAX_PARALLEL_JOBS=4                       # Number of concurrent scans (default: 3)
+CADENCE_WAIT_FOR_SLOT=0                   # Wait for parallel slot if all busy (seconds, default: 0)
+```
+
+#### Scan Behavior
+
+```bash
+SYNCHRONOUS_SCANS=yes                     # Wait for scan results (yes/no, default: no)
+RANDOM_SCANS=yes                          # Randomize file selection (yes/no, default: no)
+FAIL_ON_SEVERITIES="BLOCKER,CRITICAL"     # Fail on policy violations (default: NONE)
+API_TIMEOUT=7200                          # Detect timeout in seconds (default: 7200)
+```
+
+#### Multiple Versions & Codelocations
+
+```bash
+MAX_VERSIONS=2                            # Number of versions per project (default: 1)
+MAX_CODELOCATIONS=3                       # Number of codelocations per version (default: 1)
+FIXED_COMPONENTS=2                        # Number of files per scan (for signature scans, default: 2)
+```
+
+#### Instance Isolation & Session Tracking
+
+```bash
+INSTANCE_ID="test-instance-1"             # Unique instance identifier (default: auto-generated hostname-PID)
+RUN_SESSION_ID="20251106-120000-12345"    # Session ID for log filtering (default: auto-generated YYYYMMDD-HHMMSS-PID)
+CLEAN_OLD_LOGS=yes                        # Clean old logs at startup (yes/no, default: no)
+```
+
+#### Performance & Debugging
+
+```bash
+USE_MEMORY_MAPPING=yes                    # Enable memory mapping for 27.5% faster file access (yes/no, default: yes)
+CLEANUP_TEMP_FILES=yes                    # Remove temp scan directories after successful submission (yes/no, default: yes)
+DEBUG=yes                                 # Enable debug logging (yes/no, default: no)
+```
+
+#### Snippet Scan Settings
+
+```bash
+SNIPPETS=yes                              # Enable snippet matching (yes/no, default: no)
+STRING_SEARCH=yes                         # Enable license/copyright search (yes/no, default: no)
+```
+
+### Example: Complete Test Configuration
+
+Here's a complete example showing all commonly used parameters:
+
+```bash
+# Full production-like load test with all parameters
+INSTANCE_ID="loadtest-1" \
+RUN_SESSION_ID="20251106-120000" \
+API_TOKEN="NTE2MmI0OTktZWYzYS00MDM0LWI2ZTQtNWRlMDg3ZjNmNjUyOjI1ZGFjNTI4LTBmZjYtNDAyNi04YjJlLTkyNDZmZmQwNjJlOQ==" \
+BD_HUB_URL="https://rg-250sph-2025-7-1.saas-staging.blackduck.com" \
+MAX_SCANS=480 \
+TEST_DURATION_HOURS=4 \
+ENABLE_ENHANCED_MULTI_SCAN=yes \
+MULTI_SCAN_CONFIG="BINARY_SCAN_SMALL:25,BINARY_SCAN_LARGE:15,SIGNATURE_SCAN_SMALL:25,SIGNATURE_SCAN_LARGE:15,CONTAINER_SCAN_SMALL:10,CONTAINER_SCAN_LARGE:10" \
+PARALLEL_SCANS=yes \
+MAX_PARALLEL_JOBS=4 \
+MAX_VERSIONS=2 \
+MAX_CODELOCATIONS=2 \
+FIXED_COMPONENTS=2 \
+USE_GCS=no \
+LOCAL_TEST_DATA_DIR="/Users/karth/Library/CloudStorage/OneDrive-BlackDuckSoftware/Documents/Automation/blackducksoftware/hub-load/test-data/SCASS" \
+USE_MEMORY_MAPPING=yes \
+CLEANUP_TEMP_FILES=yes \
+CLEAN_OLD_LOGS=no \
+DEBUG=no \
+./src/hub_load/core/hub_load_main.sh
+```
+
 ### Running Tests Locally (Modular Architecture)
 
 **IMPORTANT**: Always use `hub_load_main.sh`, NOT `submit_scans_fixed.sh` or `hub_load_test.sh`
@@ -221,6 +340,7 @@ kubectl scale deployment <deployment-name> --replicas=10 -n hub-load
 ### Performance
 - `USE_MEMORY_MAPPING`: Enable memory mapping for 27.5% faster file access (yes/no, default: yes)
 - `DEBUG`: Enable debug logging (yes/no, default: no)
+- `CLEANUP_TEMP_FILES`: Remove temporary scan directories after successful submission (yes/no, default: yes)
 
 ### Multiple Versions and Codelocations (NEW - Nov 2025)
 - `MAX_VERSIONS`: Number of project versions to create per scan (default: 1)
@@ -580,6 +700,82 @@ All changes maintain backward compatibility:
 - Default behavior unchanged (keeps old logs)
 - Works with existing Docker/Kubernetes deployments
 - No breaking changes to environment variables
+
+### 11. Automatic Cleanup of Temporary Scan Directories (Nov 6, 2025)
+
+**Problem**: Temporary scan directories (`/tmp/scan_*`) were accumulating on disk during load tests, consuming significant disk space, especially for:
+- Snippet scans with extracted tar.gz files (hundreds of MB per scan)
+- Binary scans with large ISO/VMDK files (GBs per scan)
+- Long-running load tests with hundreds of scans
+
+**Symptoms**:
+```bash
+# Disk filling up with temp directories
+/tmp/scan_scan_113_10079_20251106-034653_3769833/
+  └── enhanced-binary_scan_large-18033-on-06112025-034643/
+      └── cl-1/source/linuxmint-20.2-cinnamon-64bit.iso  # 2.1 GB
+```
+
+**Solution**: Added automatic cleanup of temporary directories after successful scan submission (scan_manager.sh:582-586):
+
+```bash
+# Cleanup logic added to scan command
+bash <(curl -s -L https://detect.blackduck.com/detect.sh) \
+  --detect.project.name='...' \
+  ... [all detect parameters] ... \
+  && rm -rf '/tmp/scan_scan_113_10079_20251106-034653_3769833'
+```
+
+**Key Features**:
+- **Automatic**: Cleanup happens automatically after successful scan submission
+- **Smart**: Uses `&&` operator - only cleans up on success, preserves files on failure for debugging
+- **Configurable**: Can be disabled with `CLEANUP_TEMP_FILES=no` for debugging
+- **Default enabled**: `CLEANUP_TEMP_FILES=yes` by default to prevent disk space issues
+- **Cross-mode**: Works in both synchronous and parallel execution modes
+
+**Configuration**:
+
+```bash
+# Enable cleanup (default)
+CLEANUP_TEMP_FILES=yes ./src/hub_load/core/hub_load_main.sh
+
+# Disable cleanup for debugging
+CLEANUP_TEMP_FILES=no ./src/hub_load/core/hub_load_main.sh
+```
+
+**Testing**:
+
+```bash
+# Verify cleanup works
+USE_GCS=no MAX_SCANS=1 API_TOKEN=your-token BD_HUB_URL=https://your-hub.com \
+  ./src/hub_load/core/hub_load_main.sh
+
+# Check that temp directories are removed
+ls -la /tmp/scan_* 2>/dev/null  # Should show "No such file or directory"
+
+# Test with cleanup disabled
+CLEANUP_TEMP_FILES=no USE_GCS=no MAX_SCANS=1 \
+  API_TOKEN=your-token BD_HUB_URL=https://your-hub.com \
+  ./src/hub_load/core/hub_load_main.sh
+
+# Temp directories should still exist
+ls -la /tmp/scan_*  # Should show scan directories
+```
+
+**Benefits**:
+- ✅ Prevents disk space exhaustion during long load tests
+- ✅ Particularly important for snippet scans (extracted tar.gz files) and binary scans (large ISOs)
+- ✅ Preserves files on failure for debugging
+- ✅ No manual cleanup required
+- ✅ Works with all scan types (SIGNATURE, BINARY, CONTAINER)
+- ✅ Compatible with multiple versions/codelocations per scan
+
+**Implementation Details**:
+- Modified `generate_scan_command()` to accept `base_scan_dir` parameter (scan_manager.sh:472)
+- Added cleanup logic with `&& rm -rf` at end of command (scan_manager.sh:582-586)
+- Updated `execute_single_scan()` to pass `base_scan_dir` to command generator (scan_manager.sh:392)
+
+See `src/hub_load/core/lib/scan_manager.sh:582-586` for implementation.
 
 ## Platform Compatibility
 
