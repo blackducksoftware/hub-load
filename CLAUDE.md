@@ -2,6 +2,79 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Command Reference
+
+```bash
+# Run a quick test (most common)
+USE_GCS=no MAX_SCANS=1 \
+  API_TOKEN=your-token BD_HUB_URL=https://your-hub.com \
+  ./src/hub_load/core/hub_load_main.sh
+
+# Test specific scan type
+source src/hub_load/config/debug_container_scan.sh  # or debug_binary_scan.sh, debug_signature_scan.sh
+USE_GCS=no MAX_SCANS=3 ./src/hub_load/core/hub_load_main.sh
+
+# Production load test (480 scans over 4 hours)
+INSTANCE_ID="loadtest-1" USE_GCS=no ENABLE_ENHANCED_MULTI_SCAN=yes \
+  MAX_SCANS=480 TEST_DURATION_HOURS=4 PARALLEL_SCANS=yes MAX_PARALLEL_JOBS=4 \
+  API_TOKEN=your-token BD_HUB_URL=https://your-hub.com \
+  ./src/hub_load/core/hub_load_main.sh
+
+# Syntax validation
+bash -n src/hub_load/core/lib/*.sh && bash -n src/hub_load/core/hub_load_main.sh
+
+# Run multiple concurrent instances
+./run_multiple_tests.sh 3  # Launches 3 isolated test instances
+
+# Reset environment
+source src/hub_load/config/reset_env.sh
+```
+
+## Table of Contents
+
+**Quick Start**: Quick Command Reference | Decision Tree | Overview
+**Setup**: Architecture | Test Data Structure | Key Configuration Variables
+**Development**: Development Commands | Running Tests Locally | Debug Configs
+**Deployment**: Docker | Kubernetes | Multiple Instances
+**Reference**: Platform Compatibility | Common Bash Pitfalls | Troubleshooting
+**Documentation**: Documentation References | Key Implementation Files
+
+---
+
+## Decision Tree: Which Script/Config to Use?
+
+```
+Need to test/run scans?
+├─ Testing single scan type in isolation?
+│  └─ Use debug config: source src/hub_load/config/debug_<type>_scan.sh
+│     (container, binary, signature, snippet)
+│
+├─ Testing mixed scan types (development)?
+│  └─ Use: source src/hub_load/config/debug_mixed_scans.sh
+│
+├─ Production load test (single machine)?
+│  └─ Use: ./src/hub_load/core/hub_load_main.sh with ENABLE_ENHANCED_MULTI_SCAN=yes
+│
+├─ Multiple concurrent test instances (same machine)?
+│  └─ Use: ./run_multiple_tests.sh <num_instances>
+│
+├─ Docker/Kubernetes deployment?
+│  └─ See "Docker Deployment" and "Kubernetes Deployment" sections below
+│
+└─ Syntax validation or debugging?
+   └─ Use: bash -n src/hub_load/core/lib/*.sh
+
+Need to reset environment variables?
+└─ Use: source src/hub_load/config/reset_env.sh
+
+Need to modify code?
+├─ File discovery/selection logic? → src/hub_load/core/lib/file_manager.sh
+├─ Scan execution/metadata? → src/hub_load/core/lib/scan_manager.sh
+├─ Parallel execution? → src/hub_load/core/lib/parallel_manager.sh
+├─ Logging/validation? → src/hub_load/core/lib/common.sh
+└─ Main orchestration? → src/hub_load/core/hub_load_main.sh
+```
+
 ## Overview
 
 Hub Load is a containerized Black Duck SCA (Software Composition Analysis) load testing system that generates test workloads for Black Duck Hub instances. It supports four scan types (SIGNATURE_SCAN, BINARY_SCAN, CONTAINER_SCAN, and TAR.GZ file handling) with enhanced multi-scan capabilities.
@@ -365,417 +438,45 @@ Each instance gets isolated log directories:
 - `/tmp/hub_load_logs/test-2/parallel/`
 - `/tmp/hub_load_logs/test-3/parallel/`
 
-## Recent Updates: Legacy Compatibility & Enhancements (November 2025)
-
-The modular architecture was recently enhanced with complete legacy compatibility while maintaining all modular benefits:
-
-### 1. Dynamic Codelocation Directories
-
-Directory structure now supports multiple codelocations matching legacy pattern:
-
-**Structure:**
-```
-/tmp/scan_${scan_id}_$$/
-└── ${project_name}/
-    ├── cl-1/source/    # Codelocation 1
-    ├── cl-2/source/    # Codelocation 2
-    └── cl-N/source/    # Codelocation N
-```
-
-Controlled by `MAX_CODELOCATIONS` environment variable (default: 1).
-
-### 2. Multiple Versions Support
-
-Each project can have multiple versions, each with multiple codelocations:
-
-```bash
-# Create 2 versions with 3 codelocations each = 6 total scans
-MAX_VERSIONS=2 MAX_CODELOCATIONS=3 ./test_individual_scans.sh container 1
-```
-
-### 3. Enhanced Naming with Timestamps & Randomization
-
-All scan identifiers now include timestamps and randomization for easy tracking:
-
-**Project Names:**
-- Format: `enhanced-{scan_type}-{random}-on-{DDMMYYYY-HHMMSS}`
-- Example: `enhanced-container_scan_small-12345-on-03112025-143052`
-
-**Version Names:**
-- Format: `v{num}-{YYYYMMDD-HHMMSS}`
-- Example: `v1-20251103-143052`
-
-**Code Location Names:**
-- Format: `{hostname}-{type}-cl-{num}-{random}-{DDMMYYYY}`
-- Examples:
-  - `local-cl-1-12345-03112025` (SIGNATURE_SCAN)
-  - `local-binary-cl-1-23456-03112025` (BINARY_SCAN)
-  - `local-container-cl-1-34567-03112025` (CONTAINER_SCAN)
-
-**Scan IDs:**
-- Format: `scan_{num}_{random}_{YYYYMMDD-HHMMSS}`
-- Example: `scan_1_12345_20251103-143052`
-
-**Benefits:**
-- ✅ Unique identifiers prevent collisions
-- ✅ Easy to track and filter by date/time
-- ✅ Self-documenting names
-- ✅ Sortable chronologically
-
-### 4. Complete Detect Parameters Alignment
-
-All scan types now use the exact parameters from legacy `submit_scans_fixed.sh`:
-
-**SIGNATURE_SCAN:**
-```bash
---detect.project.version.name='v1-20251103-143052'
---detect.code.location.name='local-cl-1-12345-03112025'
---detect.source.path='project/cl-1'  # Points to codelocation dir
-```
-
-**BINARY_SCAN:**
-```bash
---detect.project.version.name='v1-20251103-143052'
---detect.code.location.name='local-binary-cl-1-23456-03112025'
---detect.binary.scan.file.path='project/cl-1/source/file.exe'
-```
-
-**CONTAINER_SCAN:**
-```bash
---detect.project.version.name='v1-20251103-143052'
---detect.container.scan.file.path='project/cl-1/source/container.tar'  # Fixed parameter name
---detect.cleanup=false
---detect.diagnostic=true  # When DEBUG=yes
-```
-
-**All scan types now support:**
-- `--blackduck.trust.cert=true`
-- `--detect.timeout='$API_TIMEOUT'`
-- `--detect.parallel.processors=-1` (SIGNATURE and BINARY only)
-- `--logging.level.detect=TRACE` (when DEBUG=yes)
-- `--detect.wait.for.results=true` (when SYNCHRONOUS_SCANS=yes)
-- `--detect.policy.check.fail.on.severities='...'` (when FAIL_ON_SEVERITIES set)
-
-### 5. Testing with Multiple Versions/Codelocations
-
-```bash
-# Single version, single codelocation (default - backward compatible)
-./test_individual_scans.sh container 1
-
-# Multiple codelocations (3 scans total)
-MAX_CODELOCATIONS=3 ./test_individual_scans.sh container 1
-
-# Multiple versions (2 scans total)
-MAX_VERSIONS=2 ./test_individual_scans.sh signature 1
-
-# Multiple versions and codelocations (6 scans total: 2×3)
-MAX_VERSIONS=2 MAX_CODELOCATIONS=3 ./test_individual_scans.sh binary 1
-
-# Production test with enhanced multi-scan
-ENHANCED_MULTI_SCAN=yes MAX_SCANS=10 MAX_VERSIONS=2 MAX_CODELOCATIONS=2 \
-  USE_GCS=no ./src/hub_load/core/hub_load_main.sh
-```
-
-### 6. Black Duck UI Visibility
-
-In Black Duck Hub, you'll see organized project structure:
-
-```
-enhanced-container_scan_small-12345-on-03112025-143052/
-├── v1-20251103-143052/
-│   ├── local-container-cl-1-23456-03112025
-│   ├── local-container-cl-2-34567-03112025
-│   └── local-container-cl-3-45678-03112025
-└── v2-20251103-143053/
-    ├── local-container-cl-1-56789-03112025
-    ├── local-container-cl-2-67890-03112025
-    └── local-container-cl-3-78901-03112025
-```
-
-### 7. Backward Compatibility
-
-All changes are fully backward compatible:
-- Default values (`MAX_VERSIONS=1`, `MAX_CODELOCATIONS=1`) maintain original behavior
-- Existing environment variables unchanged
-- No breaking changes to existing functionality
-- Directory structure compatible (cl-1 instead of Codelocation)
-
-For complete details, see `COMPLETE_MODULAR_UPDATES.md`.
-
-### 8. Snippet Scan File Extraction Fix (Nov 5, 2025)
-
-**Problem**: Snippet scans were failing because tar.gz files were being symlinked to the scan directory instead of being extracted. Black Duck Detect's signature scanner with snippet matching requires the actual source code, not archived files.
-
-**Symptoms**:
-```
-❌ Command failed with exit code 1 at line 373
---detect.source.path='/tmp/scan_.../cl-1/source'  # contained symlink to .tar.gz
-```
-
-**Solution**: Modified `scan_manager.sh` (lines 234-302) to detect snippet scans and extract tar.gz files instead of creating symlinks:
-
-```bash
-# Check if this is a snippet scan
-if [ "${snippets}" == "yes" ] || [[ "$scan_type_size" == *"SNIPPET"* ]]; then
-    # Extract tar.gz to scan directory
-    tar -xzf "$source_file" -C "$scan_dir"
-    # Log as "(extracted)" for clarity
-fi
-```
-
-**Benefits**:
-- ✅ Snippet scans now properly extract source code from tar.gz archives
-- ✅ Signature scanner can perform snippet matching on actual source files
-- ✅ Log output clearly shows "(extracted)" status for snippet archives
-- ✅ Backward compatible - non-snippet scans still use symlinks for performance
-
-**Testing**:
-```bash
-source src/hub_load/config/debug_snippet_scan.sh
-export USE_GCS=no MAX_SCANS=1
-./src/hub_load/core/hub_load_main.sh
-
-# Output shows:
-# Files: SCASS_SCA_SNIPPETS_996.ICU.tar.gz (extracted)
-# Source directory contains extracted source files, not tar.gz
-```
-
-See `src/hub_load/core/lib/scan_manager.sh:234-302` for implementation details.
-
-### 9. Summary Counting Fix for .meta Files (Nov 5, 2025)
-
-**Problem**: The scan summary was showing 0 scans for all types even when scans were running, because the counting logic was looking for `.log` files which don't exist until scans complete.
-
-**Root Cause**: In `scan_manager.sh:1003` and `1136`, the summary logic was iterating over:
-```bash
-for log_file in "$log_dir"/${RUN_SESSION_ID}__*.log; do
-```
-
-But `.log` files are only created after scans complete. For running or failed scans, only `.meta` files exist (created at scan start).
-
-**Solution**: Changed the summary logic to iterate over `.meta` files instead (lines 1005, 1136):
-
-```bash
-for metadata_file in "$log_dir"/${RUN_SESSION_ID}__*.meta; do
-    # Extract scan type from metadata
-    scan_type_size=$(grep "^SCAN_TYPE_SIZE=" "$metadata_file" | cut -d'=' -f2)
-
-    # Build result from metadata if log doesn't exist
-    if [ ! -f "$log_file" ]; then
-        # Extract from metadata: PROJECT_NAME, VERSION_NAME, SCAN_TYPE_SIZE, etc.
-    fi
-done
-```
-
-**Benefits**:
-- ✅ Summary now shows running scans, not just completed ones
-- ✅ Works on macOS, Linux, and all platforms
-- ✅ Scan counts are accurate from scan start, not scan completion
-- ✅ Failed scans are also counted (previously invisible)
-
-**Testing**:
-```bash
-# With 4 snippet scans from session 20251105-112122-24631
-RUN_SESSION_ID="20251105-112122-24631" print_scan_statistics
-
-# Output now shows:
-# • SNIPPET_SCAN: 4 scans (was 0 before fix)
-# • TOTAL: 4 scans (was 0 before fix)
-```
-
-See `src/hub_load/core/lib/scan_manager.sh:1001-1060` (count logic) and `1135-1156` (detailed results).
-
-### 10. Summary Reporting and Instance Isolation Fixes (Nov 5, 2025)
-
-Critical fixes to summary reporting and support for running multiple concurrent test instances:
-
-#### Run Session ID Tracking
-
-**Problem**: Log directories accumulated files from multiple test runs, causing summaries to count ALL historical logs instead of just the current run (e.g., reporting 1247 scans when only 480 were run).
-
-**Solution**: Added `RUN_SESSION_ID` to distinguish between different test runs:
-
-```bash
-# Auto-generated format: YYYYMMDD-HHMMSS-PID
-export RUN_SESSION_ID="20251105-123456-789"
-```
-
-**Log File Naming**: All log files now include the session ID prefix:
-```
-Before: BINARY_SCAN_enhanced-binary_scan_large-10278-on-05112025-092223.log
-After:  20251105-123456-789__BINARY_SCAN_enhanced-binary_scan_large-10278-on-05112025-092223.log
-```
-
-**Summary Filtering**: All summary functions now filter by `RUN_SESSION_ID` to count only current run scans:
-- Scan type distribution (scan_manager.sh:957)
-- Detailed results table (scan_manager.sh:1076)
-- Job status summary (parallel_manager.sh:211)
-- Job results extraction (parallel_manager.sh:236)
-
-#### Instance Isolation for Concurrent Tests
-
-**Problem**: Running multiple test instances from the same machine caused log file conflicts and mixed scan results.
-
-**Solution**: Added `INSTANCE_ID` to provide complete isolation between concurrent test instances:
-
-```bash
-# Auto-generated format: hostname-PID
-export INSTANCE_ID="perflab1-123456"
-
-# Or set explicitly for clarity
-export INSTANCE_ID="test-instance-1"
-```
-
-**Instance-Specific Directories**:
-```
-/tmp/hub_load_logs/
-├── test-instance-1/parallel/  # Instance 1 logs
-├── test-instance-2/parallel/  # Instance 2 logs
-└── test-instance-3/parallel/  # Instance 3 logs
-```
-
-**Running Multiple Instances**:
-
-Method 1 - Using helper script:
-```bash
-./run_multiple_tests.sh 3  # Launches 3 instances automatically
-```
-
-Method 2 - Manual launch:
-```bash
-INSTANCE_ID="test-1" nohup ./src/hub_load/core/hub_load_main.sh > test1.log 2>&1 &
-INSTANCE_ID="test-2" nohup ./src/hub_load/core/hub_load_main.sh > test2.log 2>&1 &
-INSTANCE_ID="test-3" nohup ./src/hub_load/core/hub_load_main.sh > test3.log 2>&1 &
-```
-
-Each instance maintains:
-- ✅ Separate log directories (no file conflicts)
-- ✅ Independent scan tracking (accurate counts per instance)
-- ✅ Isolated summaries (each shows only its scans)
-- ✅ Shared test data access (read-only, safe)
-
-See `RUNNING_MULTIPLE_INSTANCES.md` for complete documentation.
-
-#### Summary Accuracy Improvements
-
-**Fixed Scan Type Counting** (scan_manager.sh:891-1004):
-- Changed from global counters (only worked in synchronous mode) to log file-based counting
-- Now accurately counts scan types in both parallel and sequential modes
-- Extracts scan type from metadata files or detect command parameters
-
-**Enhanced Metadata Extraction** (scan_manager.sh:864-917):
-- Improved fallback logic when metadata files are missing
-- Extracts scan type from `detect.tools='BINARY_SCAN'` parameter
-- Infers size variants from filenames (`_large`, `_small`, etc.)
-- Extracts files used, start times, and other metadata from log content
-
-**Consistent File Naming** (scan_manager.sh:195-200):
-- Log files and metadata files now use matching base names
-- Format: `${RUN_SESSION_ID}__${scan_type}_${project_name}_${scan_id}.log`
-- Corresponding metadata: `${RUN_SESSION_ID}__${scan_type}_${project_name}_${scan_id}.meta`
-
-**Results**:
-- Scan type distribution now shows accurate counts (was showing 0 for all types)
-- Detailed results table displays complete metadata (was showing N/A for most fields)
-- Summary totals match actual scans run (480 instead of 1247 accumulated logs)
-
-#### Old Log File Management
-
-**Auto-Detection**: System reports old log count at startup:
-```
-Found 1247 log files from previous runs (set CLEAN_OLD_LOGS=yes to auto-clean)
-```
-
-**Auto-Cleanup** (optional):
-```bash
-CLEAN_OLD_LOGS=yes ./src/hub_load/core/hub_load_main.sh
-```
-
-This removes all `.log` and `.meta` files from the instance log directory before starting.
-
-#### Backward Compatibility
-
-All changes maintain backward compatibility:
-- Auto-generated IDs if not set explicitly
-- Default behavior unchanged (keeps old logs)
-- Works with existing Docker/Kubernetes deployments
-- No breaking changes to environment variables
-
-### 11. Automatic Cleanup of Temporary Scan Directories (Nov 6, 2025)
-
-**Problem**: Temporary scan directories (`/tmp/scan_*`) were accumulating on disk during load tests, consuming significant disk space, especially for:
-- Snippet scans with extracted tar.gz files (hundreds of MB per scan)
-- Binary scans with large ISO/VMDK files (GBs per scan)
-- Long-running load tests with hundreds of scans
-
-**Symptoms**:
-```bash
-# Disk filling up with temp directories
-/tmp/scan_scan_113_10079_20251106-034653_3769833/
-  └── enhanced-binary_scan_large-18033-on-06112025-034643/
-      └── cl-1/source/linuxmint-20.2-cinnamon-64bit.iso  # 2.1 GB
-```
-
-**Solution**: Added automatic cleanup of temporary directories after successful scan submission (scan_manager.sh:582-586):
-
-```bash
-# Cleanup logic added to scan command
-bash <(curl -s -L https://detect.blackduck.com/detect.sh) \
-  --detect.project.name='...' \
-  ... [all detect parameters] ... \
-  && rm -rf '/tmp/scan_scan_113_10079_20251106-034653_3769833'
-```
-
-**Key Features**:
-- **Automatic**: Cleanup happens automatically after successful scan submission
-- **Smart**: Uses `&&` operator - only cleans up on success, preserves files on failure for debugging
-- **Configurable**: Can be disabled with `CLEANUP_TEMP_FILES=no` for debugging
-- **Default enabled**: `CLEANUP_TEMP_FILES=yes` by default to prevent disk space issues
-- **Cross-mode**: Works in both synchronous and parallel execution modes
-
-**Configuration**:
-
-```bash
-# Enable cleanup (default)
-CLEANUP_TEMP_FILES=yes ./src/hub_load/core/hub_load_main.sh
-
-# Disable cleanup for debugging
-CLEANUP_TEMP_FILES=no ./src/hub_load/core/hub_load_main.sh
-```
-
-**Testing**:
-
-```bash
-# Verify cleanup works
-USE_GCS=no MAX_SCANS=1 API_TOKEN=your-token BD_HUB_URL=https://your-hub.com \
-  ./src/hub_load/core/hub_load_main.sh
-
-# Check that temp directories are removed
-ls -la /tmp/scan_* 2>/dev/null  # Should show "No such file or directory"
-
-# Test with cleanup disabled
-CLEANUP_TEMP_FILES=no USE_GCS=no MAX_SCANS=1 \
-  API_TOKEN=your-token BD_HUB_URL=https://your-hub.com \
-  ./src/hub_load/core/hub_load_main.sh
-
-# Temp directories should still exist
-ls -la /tmp/scan_*  # Should show scan directories
-```
-
-**Benefits**:
-- ✅ Prevents disk space exhaustion during long load tests
-- ✅ Particularly important for snippet scans (extracted tar.gz files) and binary scans (large ISOs)
-- ✅ Preserves files on failure for debugging
-- ✅ No manual cleanup required
-- ✅ Works with all scan types (SIGNATURE, BINARY, CONTAINER)
-- ✅ Compatible with multiple versions/codelocations per scan
-
-**Implementation Details**:
-- Modified `generate_scan_command()` to accept `base_scan_dir` parameter (scan_manager.sh:472)
-- Added cleanup logic with `&& rm -rf` at end of command (scan_manager.sh:582-586)
-- Updated `execute_single_scan()` to pass `base_scan_dir` to command generator (scan_manager.sh:392)
-
-See `src/hub_load/core/lib/scan_manager.sh:582-586` for implementation.
+## Recent Major Enhancements (November 2025)
+
+The modular architecture has been significantly enhanced with the following key improvements:
+
+### Multi-Version/Codelocation Support
+- **Multiple Versions**: `MAX_VERSIONS` creates multiple project versions (default: 1)
+- **Multiple Codelocations**: `MAX_CODELOCATIONS` creates multiple codelocations per version (default: 1)
+- **Example**: `MAX_VERSIONS=2 MAX_CODELOCATIONS=3` creates 6 total scans (2×3)
+- **Naming**: Timestamped identifiers prevent collisions: `enhanced-container_scan_small-12345-on-03112025-143052`
+
+### Instance Isolation & Session Tracking
+- **Instance Isolation**: `INSTANCE_ID` enables running multiple concurrent test instances without conflicts
+- **Session Tracking**: `RUN_SESSION_ID` filters logs/summaries to current run only (prevents counting historical logs)
+- **Auto-Generated IDs**: Both IDs auto-generate if not explicitly set (`hostname-PID` and `YYYYMMDD-HHMMSS-PID`)
+- **Isolated Logs**: Each instance gets separate log directory: `/tmp/hub_load_logs/<instance-id>/parallel/`
+- **Helper Script**: `./run_multiple_tests.sh 3` launches 3 isolated instances automatically
+
+### Summary & Metadata Improvements
+- **Accurate Counting**: Summaries use `.meta` files (created at scan start) instead of `.log` files (created at completion)
+- **Real-Time Visibility**: Shows running/failed scans, not just completed ones
+- **Cross-Platform**: Works correctly on macOS, Linux, and containers
+- **Session Filtering**: All summaries filter by `RUN_SESSION_ID` to show only current run
+
+### Automatic Cleanup & Performance
+- **Temp Directory Cleanup**: `CLEANUP_TEMP_FILES=yes` (default) removes `/tmp/scan_*` dirs after successful submission
+- **Disk Space Protection**: Critical for snippet scans (extracted tar.gz) and binary scans (large ISOs)
+- **Smart Cleanup**: Only removes on success; preserves files on failure for debugging
+- **Snippet Extraction**: Snippet scans properly extract tar.gz archives instead of symlinking (required by Detect)
+
+### Bash Compatibility Fixes
+- **C-Style Ternary**: Replaced unsupported `condition ? true : false` with if-then-else
+- **Counter Increments**: Fixed `((counter++))` which fails with `set -e` when counter is 0
+- **Platform Detection**: Auto-detects log directory (`/app/logs` for containers, `/tmp/hub_load_logs` for local)
+
+See detailed documentation in:
+- `RUNNING_MULTIPLE_INSTANCES.md` - Multi-instance deployment guide
+- `SCAN_SUMMARY_ENHANCEMENTS.md` - Summary improvements
+- `BINARY_SCAN_UPLOAD_FIX.md` - Binary scan fixes
+- `METADATA_FIX_DEPLOYMENT.md` - Metadata handling
 
 ## Platform Compatibility
 
@@ -996,182 +697,56 @@ When adding new path logic, maintain this priority order.
 
 ## Git Workflow
 
-Current branch: `perflab_enhanced_multiscans`
+**Current branch**: `perflab_enhanced_multiscans`
 
-### Creating Commits
+**Commit message patterns** (follow existing style):
+- "sequence fix" - Logic/ordering fixes
+- "Fixed the expected scans" - Configuration corrections
+- "deterministic scan selection added" - Feature additions
+- "Fixes for binary and container scans" - Bug fixes
 
-When committing changes:
-1. Check current status: `git status`
-2. Review changes: `git diff`
-3. Stage files: `git add <files>`
-4. Commit with descriptive message following existing style
-
-Recent commit patterns show:
-- "sequence fix" - for logic/ordering fixes
-- "Fixed the expected scans" - for configuration corrections
-- "deterministic scan selection added" - for feature additions
-- "Fixes for binary and container scans" - for bug fixes
-
-## Recent Fixes (November 2025)
-
-### Critical Bash Compatibility Fixes
-
-The following issues were discovered and fixed when running on Ubuntu/Linux:
-
-#### 1. C-Style Ternary Operators Not Supported
-**Problem**: Bash doesn't support `condition ? true : false` syntax in `$(( ))` arithmetic.
-
-**Files Fixed**:
-- `src/hub_load/core/lib/file_manager.sh:414` - Component count calculation
-- `src/hub_load/core/lib/file_manager.sh:389` - Minimum components check
-- `src/hub_load/core/lib/common.sh:277` - Sleep time calculation
-
-**Before**:
+**Before committing**:
 ```bash
-num_files=$(( ${FIXED_COMPONENTS:-2} > ${#files[@]} ? ${#files[@]} : ${FIXED_COMPONENTS:-2} ))
+# Verify syntax
+bash -n src/hub_load/core/lib/*.sh && bash -n src/hub_load/core/hub_load_main.sh
+
+# Check for sensitive data
+git diff | grep -i "token\|password\|secret"
+
+# Standard git workflow
+git status
+git diff
+git add <files>
+git commit -m "Clear descriptive message"
 ```
-
-**After**:
-```bash
-local fixed_comp=${FIXED_COMPONENTS:-2}
-local available=${#files[@]}
-if [ "$fixed_comp" -gt "$available" ]; then
-    num_files=$available
-else
-    num_files=$fixed_comp
-fi
-```
-
-#### 2. Unsafe Counter Increments with set -e
-**Problem**: `((counter++))` returns exit code 1 when counter is 0, causing script failure with `set -e`.
-
-**Fixed 28+ instances** across:
-- `src/hub_load/core/lib/scan_manager.sh` - All scan type counters and status counters
-
-**Before**:
-```bash
-((SIGNATURE_SCAN_COUNT++))
-((success_count++))
-```
-
-**After**:
-```bash
-SIGNATURE_SCAN_COUNT=$((SIGNATURE_SCAN_COUNT + 1))
-success_count=$((success_count + 1))
-```
-
-#### 3. Platform-Aware Log Directory
-**Fixed**: `src/hub_load/core/lib/common.sh:129`
-
-**Before**: Hardcoded `/app/logs` for all platforms
-**After**: Automatically detects platform:
-- Docker/containers with `/app`: Uses `/app/logs`
-- macOS/Linux without `/app`: Uses `/tmp/hub_load_logs`
-
-#### 4. hub_load_test.sh Called Wrong Script
-**Fixed**: `src/hub_load/hub_load_test.sh:27`
-
-**Before**: Called legacy `submit_scans_fixed.sh`
-**After**: Calls modular `hub_load_main.sh`
-
-### Security Fixes
-
-#### API Token Protection
-- Created `.gitignore` to protect sensitive files
-- Sanitized `src/run_scans.bash` to use environment variables instead of hardcoded tokens
-- Protected `.claude/settings.local.json` from git commits
-
-### New Files Created
-
-#### run_load_test.sh
-Wrapper script for easy test execution with proper nohup support:
-
-```bash
-# Usage
-export API_TOKEN=your-token
-export BD_HUB_URL=https://your-hub.com
-./run_load_test.sh background  # or foreground
-```
-
-#### .gitignore
-Protects sensitive files from accidental commits:
-- API keys and secrets
-- Log files
-- Claude Code local settings
-- Backup files
 
 ## Known Issues and Workarounds
 
-### Legacy Script Issues (DO NOT USE)
+### CRITICAL: Use Modular Architecture Only
+- **Never use** `submit_scans_fixed.sh` (legacy, 2053-line monolith with known bugs)
+- **Always use** `src/hub_load/core/hub_load_main.sh` (modular, tested, maintained)
+- The `hub_load_test.sh` wrapper correctly calls the modular version
 
-`submit_scans_fixed.sh` has known issues:
-- Syntax errors that cascade across 2053 lines
-- Variable corruption (e.g., `MAX_PARALLEL_JOBS` gets corrupted with "ho" suffix)
-- Debugging nightmares due to monolithic design
-- **Solution**: Use `hub_load_main.sh` instead
+### Platform-Specific Notes
 
-**CRITICAL**: The `hub_load_test.sh` script has been fixed to call the modular version. If you still see errors, ensure you have the latest version.
+**macOS (Bash 3.2)**:
+- No associative arrays - uses alternative tracking
+- NFS paths supported: `/Users/karth/Library/CloudStorage/...`
+- Log directory: `/tmp/hub_load_logs/`
 
-### Running on Ubuntu/Linux
+**Linux/Ubuntu (Bash 4+)**:
+- Requires Java 17 (`sudo apt install openjdk-17-jdk`)
+- Docker paths: `/opt/blackduck/hub-load/test-data`
+- Container log directory: `/app/logs/` (auto-detected)
 
-When deploying to Ubuntu, use the modular architecture directly:
+**Test Data Path**:
+- Always include `/SCASS` suffix: `LOCAL_TEST_DATA_DIR="/path/to/SCASS"`
+- System checks priority: 1) Env var, 2) NFS path, 3) Docker path, 4) Relative path
 
-```bash
-# Direct call (recommended)
-nohup bash -c '
-source src/hub_load/config/debug_mixed_scans.sh
-export API_TOKEN="your-token"
-export BD_HUB_URL="https://your-hub.com"
-export MAX_PARALLEL_JOBS=4
-export MAX_SCANS=480
-export TEST_DURATION=8
-export LOCAL_TEST_DATA_DIR="/path/to/test-data/SCASS"
-export USE_GCS=no
-./src/hub_load/core/hub_load_main.sh
-' > scans.log 2>&1 &
-```
-
-**Important**: Always include `/SCASS` in your `LOCAL_TEST_DATA_DIR` path.
-
-### Log Directory Behavior
-
-The system automatically selects the appropriate log directory:
-
-| Environment | Log Directory | Status |
-|------------|---------------|--------|
-| Docker containers | `/app/logs/parallel/` | Auto-detected |
-| macOS/Linux local | `/tmp/hub_load_logs/parallel/` | Auto-detected |
-| Custom | `$LOG_DIR/parallel/` | Set `LOG_DIR` env var |
-
-**Note**: You may still see harmless warnings on macOS about `/app` directory if using older versions.
-
-### Java Configuration in Containers
-
-The modular architecture auto-detects Java 17 installations. If Java is not found, it searches common Ubuntu/Linux paths in priority order (JDK 17 first).
-
-### Sleep Optimization
-
-First scan skips initial sleep interval for faster testing. This is controlled in the scan manager logic.
-
-### Memory Mapping Performance
-
-Memory mapping provides ~27.5% performance improvement for file access. It's enabled by default but can be disabled with `USE_MEMORY_MAPPING=no`.
-
-### Container Scan Debugging
-
-If container scans fail, use debug configs to isolate the issue:
-
-```bash
-# Test container scans in isolation
-./test_individual_scans.sh container 1
-
-# Check test data exists
-ls -la test-data/SCASS/SCA_NON_BDIOS_CONTAINER_SM_MEDIUM/
-
-# Full debug
-source src/hub_load/config/debug_container_scan.sh
-DEBUG=yes USE_GCS=no MAX_SCANS=1 ./src/hub_load/core/hub_load_main.sh
-```
+### Performance Features
+- **Memory Mapping**: 27.5% faster file access (enabled by default, disable with `USE_MEMORY_MAPPING=no`)
+- **Parallel Execution**: Set `PARALLEL_SCANS=yes` and `MAX_PARALLEL_JOBS=4`
+- **Temp Cleanup**: Automatic cleanup enabled by default (`CLEANUP_TEMP_FILES=yes`)
 
 ## Monitoring and Logging
 
@@ -1338,65 +913,25 @@ Implementation and fix documentation:
 - `RUNNING_MULTIPLE_INSTANCES.md`: Multi-instance deployment guide (Nov 5, 2025)
 - `.gitignore`: Security protections for sensitive files
 
-## Files Created/Modified in Latest Session (Nov 2025)
+## Key Implementation Files
 
-### Session 1 - Bash Compatibility and Security Fixes
+**Core Modular Components** (always use these):
+- `src/hub_load/core/hub_load_main.sh` - Main entry point (modular)
+- `src/hub_load/core/lib/common.sh` - Logging, config, validation, instance isolation
+- `src/hub_load/core/lib/scan_manager.sh` - Scan orchestration, metadata, summaries
+- `src/hub_load/core/lib/file_manager.sh` - File operations, test data discovery
+- `src/hub_load/core/lib/parallel_manager.sh` - Parallel execution management
 
-**New Files**:
-- `run_load_test.sh`: Wrapper script for easy execution
-- `.gitignore`: Protects API keys and sensitive data
+**Debug Configurations** (isolate scan types for testing):
+- `src/hub_load/config/debug_container_scan.sh` - 100% container scans
+- `src/hub_load/config/debug_binary_scan.sh` - 100% binary scans
+- `src/hub_load/config/debug_signature_scan.sh` - 100% signature scans
+- `src/hub_load/config/debug_mixed_scans.sh` - Multi-type distribution
+- `src/hub_load/config/reset_env.sh` - Reset all environment variables
 
-**Modified Files**:
-- `src/hub_load/core/lib/common.sh`: Platform-aware LOG_DIR, Bash compatibility fixes
-- `src/hub_load/core/lib/file_manager.sh`: Removed ternary operators, safe increments
-- `src/hub_load/core/lib/scan_manager.sh`: Safe counter increments (28+ fixes)
-- `src/hub_load/hub_load_test.sh`: Now calls modular architecture
-- `src/run_scans.bash`: Sanitized API tokens
+**Helper Scripts**:
+- `run_multiple_tests.sh` - Launch multiple concurrent isolated instances
+- `run_load_test.sh` - Wrapper for easy execution with nohup
 
-### Session 2 - Summary Reporting and Instance Isolation (Nov 5, 2025)
-
-**New Files**:
-- `run_multiple_tests.sh`: Helper script to launch multiple concurrent test instances
-- `RUNNING_MULTIPLE_INSTANCES.md`: Complete guide for running multiple instances in parallel
-
-**Modified Files**:
-- `src/hub_load/core/lib/common.sh`:
-  - Added `INSTANCE_ID` for multi-instance isolation (line 10-15)
-  - Added `RUN_SESSION_ID` for session tracking (line 17-21)
-
-- `src/hub_load/core/lib/parallel_manager.sh`:
-  - Instance-specific log directories (line 25-36)
-  - Old log file cleanup option (line 40-54)
-  - Session-filtered job status summary (line 211)
-  - Session-filtered results extraction (line 236)
-
-- `src/hub_load/core/lib/scan_manager.sh`:
-  - Session-prefixed log file naming (line 195-200)
-  - Log file-based scan type counting (line 891-1004)
-  - Enhanced metadata extraction fallbacks (line 864-917)
-  - Session-filtered detailed results (line 1076)
-
-- `CLAUDE.md`: This file - comprehensive documentation updates
-
-### Session 3 - Snippet Scan and Summary Fixes (Nov 5, 2025)
-
-**Modified Files**:
-- `src/hub_load/core/lib/scan_manager.sh`:
-  - **Snippet scan tar.gz extraction** (line 234-302): Extract archives instead of symlinking for snippet scans
-  - **Summary counting fix** (line 1001-1060): Use .meta files instead of .log files for accurate counts on all platforms
-  - **Detailed results fix** (line 1135-1156): Use .meta files to show running/failed scans, not just completed ones
-
-- `src/hub_load/config/debug_mixed_scans.sh`:
-  - **MAX_SCANS override fix** (line 31): Changed hardcoded `export MAX_SCANS=60` to `export MAX_SCANS=${MAX_SCANS:-60}` to allow override
-  - **Active config display** (line 39-52): Shows which config (SMALL_SCAN_CONFIG or MULTI_SCAN_CONFIG) will actually be used based on threshold
-  - **Clear config output**: Now displays `ACTIVE_CONFIG` and `CONFIG_VALUE` instead of misleading `MULTI_SCAN_CONFIG`
-  - **FIXED_COMPONENTS export** (line 36): Added missing `export FIXED_COMPONENTS=${FIXED_COMPONENTS:-2}` to prevent integer expression errors
-
-- `CLAUDE.md`: This file - documented snippet scan extraction fix, summary counting fix, and debug config improvements
-
-**Benefits of debug config fix**:
-- ✅ Users can override MAX_SCANS: `MAX_SCANS=20 source debug_mixed_scans.sh`
-- ✅ Debug output shows correct config being used (SMALL for <50, MULTI for ≥50)
-- ✅ No more confusion about which config percentages apply
-- ✅ Threshold (50) is clearly displayed
-- ✅ FIXED_COMPONENTS properly exported - prevents "integer expression expected" errors on Linux
+**Security**:
+- `.gitignore` - Protects API tokens, logs, and sensitive files from commits
