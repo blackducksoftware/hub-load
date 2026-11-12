@@ -3,7 +3,7 @@
 # and process Postgres log data
 #
 
-FROM ubuntu:focal
+FROM ubuntu:focal@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
 
 RUN apt-get update && \
     apt-get upgrade -y && \
